@@ -1,4 +1,12 @@
 cmake_minimum_required(VERSION 3.16)
+
+# Must be set before project() to take effect. Only defaults it if the user
+# (or a toolchain file) hasn't already picked one - e.g. via
+# -DCMAKE_OSX_DEPLOYMENT_TARGET=... on the cmake command line.
+if(APPLE AND NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0" CACHE STRING "Minimum macOS version to support" FORCE)
+endif()
+
 project(PhotosByLarry LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -43,7 +51,23 @@ set(APP_HEADERS
     src/ui/CropOverlayItem.h
 )
 
-add_executable(PhotosByLarry ${APP_SOURCES} ${APP_HEADERS})
+# MACOSX_BUNDLE only takes effect on Apple platforms (a real .app bundle
+# instead of a bare executable); it's a silent no-op everywhere else, so
+# there's no need to condition it on APPLE.
+add_executable(PhotosByLarry MACOSX_BUNDLE ${APP_SOURCES} ${APP_HEADERS})
+
+if(APPLE)
+    # Fills in the bundle's Info.plist. No custom app icon yet - add an
+    # .icns file, set MACOSX_BUNDLE_ICON_FILE to its name, and add it to the
+    # add_executable() sources with MACOSX_PACKAGE_LOCATION "Resources" to
+    # give the bundle one.
+    set_target_properties(PhotosByLarry PROPERTIES
+        MACOSX_BUNDLE_BUNDLE_NAME "Photos by Larry"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "com.example.photosbylarry"
+        MACOSX_BUNDLE_BUNDLE_VERSION "1.0"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "1.0"
+    )
+endif()
 
 target_include_directories(PhotosByLarry PRIVATE
     src

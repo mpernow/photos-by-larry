@@ -18,6 +18,14 @@ cmake --build build -j
 ./build/PhotosByLarry
 ```
 
+`CMakeLists.txt` also has basic
+macOS support - `MACOSX_BUNDLE` on the target (a no-op on other platforms,
+so it doesn't affect the Linux build) and a default
+`CMAKE_OSX_DEPLOYMENT_TARGET` - believed correct from Qt/CMake's own docs
+but unverified on real macOS; see the README's macOS section (dependencies
+via Homebrew, `open build/PhotosByLarry.app` to run, what's still needed for
+a distributable - not just locally-runnable - bundle).
+
 There is no test suite and no linter/formatter configured in this repo yet.
 Verify changes by building (it must compile cleanly with no new warnings)
 and, where possible, running the app.
@@ -42,7 +50,7 @@ The code is split into two layers under `src/`:
   white balance (`temperature`/`tint` — simple per-channel gain shifts, not
   true Kelvin-based color science), a discrete rotation
   (`rotationQuarterTurns`, 0-3), and a crop rect normalized to `[0,1]`
-  *relative to the rotated image* — resolution independent, so the same
+  _relative to the rotated image_ — resolution independent, so the same
   value crops the full-resolution photo and any downscaled preview
   identically. Serializes to/from JSON. Rotating a photo that already has a
   crop transforms the crop rect to match
@@ -116,14 +124,14 @@ meaningful "in progress" state:
   `EditParameters` into an in-memory `MainWindow::m_copiedParameters` —
   session-only, not written anywhere, not tied to the source photo, so it
   works across directories. "Paste" applies it to whatever's currently
-  selected *except* the crop rect, which is left as the destination's own
+  selected _except_ the crop rect, which is left as the destination's own
   (a crop drawn for one photo's content/aspect ratio has no reason to mean
   anything on another). Paste is disabled until something's copied and
   while mid-crop; Copy is read-only and stays available even then.
 - **Favoriting** (discrete): two controls - the checkable "Photo > Toggle
   Favorite" menu action (shortcut `F`) and `ImageViewer`'s corner button -
   both feed `MainWindow::onFavoriteToggled`, the single place that persists
-  the change and syncs the *other* control to match (via `QSignalBlocker`,
+  the change and syncs the _other_ control to match (via `QSignalBlocker`,
   so the sync doesn't loop back as another toggle). Enabled whenever a photo
   is loaded, including mid-crop - unlike Export/Paste, it never touches the
   rendered image, so there's no reason to lock it out.
@@ -138,7 +146,7 @@ The "Export..." button lives in the status bar's permanent-widget area
 (bottom-right corner) rather than a menu — that placement was a specific
 ask, not a default, so preserve it rather than "cleaning it up" into a menu
 action. It renders `m_currentSource` through `ImageProcessor::apply` with
-the photo's last *committed* `EditParameters` and writes the result via
+the photo's last _committed_ `EditParameters` and writes the result via
 `cv::imwrite` to a file the user picks; it never touches the sidecar, so
 exporting doesn't affect how revisable the edit stays. Acts on the single
 active photo only — the thumbnail grid is single-selection, so there's no
@@ -147,9 +155,9 @@ multi-photo selection to drive a batch export from yet.
 ### View row vs. library index (`ThumbnailModel`)
 
 The favorites-only filter means `ThumbnailModel` has two distinct notions of
-"index": the *view row* (this model's row, 0..N-1 over whatever subset is
+"index": the _view row_ (this model's row, 0..N-1 over whatever subset is
 currently visible - tracked in `m_visibleIndices`, view row -> library
-index) and the *library index* (a photo's stable position in `PhotoLibrary`,
+index) and the _library index_ (a photo's stable position in `PhotoLibrary`,
 unaffected by filtering). Everything outside this model - `MainWindow`,
 `ThumbnailPanel`'s selection handling - deals exclusively in library
 indices, fetched via `PhotoIndexRole` (defined from the very start of the
@@ -175,7 +183,7 @@ diffing old/new `m_visibleIndices` with targeted
 Live slider dragging renders from `m_previewSource` so every mouse-move stays
 cheap regardless of the photo's actual resolution; slider release, rotate,
 and crop-apply all re-render from `m_currentSource` for a crisp result.
-`ImageViewer` only re-fits/re-centers when the displayed pixmap's *dimensions*
+`ImageViewer` only re-fits/re-centers when the displayed pixmap's _dimensions_
 change, so switching between preview- and full-resolution renders of the same
 photo doesn't reset the user's pan/zoom.
 
@@ -190,5 +198,5 @@ photo doesn't reset the user's pan/zoom.
   `QListView` calling the delegate's `sizeHint()` for every row (not just
   visible ones) falls through to reading `Qt::DecorationRole` to size the
   item — which is exactly what triggers this model's background thumbnail
-  decode, so *every* photo in a directory would start decoding the instant
+  decode, so _every_ photo in a directory would start decoding the instant
   it's opened instead of just the visible ones.

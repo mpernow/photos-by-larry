@@ -6,6 +6,8 @@ A desktop photo browser/editor built with Qt (UI) and OpenCV (image processing).
 
 Dependencies: CMake 3.16+, a C++17 compiler, Qt6 (Widgets + Concurrent), OpenCV 4.
 
+### Linux
+
 On Ubuntu/Debian:
 
 ```sh
@@ -19,6 +21,100 @@ cmake -B build
 cmake --build build -j
 ./build/PhotosByLarry
 ```
+
+### macOS
+
+The C++ code has no Linux-specific dependencies - it's all Qt/OpenCV APIs -
+so this is the same build, just with Homebrew for the dependencies. Full
+walkthrough starting from a Mac with no development tools installed at all:
+
+**1. Install Homebrew** (macOS's package manager - this is what installs
+everything else):
+
+```sh
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+If Xcode's command-line tools (the actual C++ compiler) aren't already
+present, this installer detects that and offers to install them
+automatically - that step alone can take a while and may need a click
+through a GUI dialog.
+
+When it finishes, it prints a couple of lines telling you to add Homebrew to
+your shell's PATH - **run those exact lines it shows you** (they differ
+between Apple Silicon and Intel Macs, which is why there isn't one fixed
+command to give here). Close and reopen Terminal afterward so it takes
+effect.
+
+**2. Install the build dependencies:**
+
+```sh
+brew install cmake qt6 opencv
+```
+
+This is the slow step - Qt6 and OpenCV are large, and depending on your Mac
+and macOS version, Homebrew may need to compile one or both from source
+rather than download a prebuilt version. Could be anywhere from a few
+minutes to the better part of an hour.
+
+**3. From the project folder, configure and build:**
+
+```sh
+cmake -B build -DCMAKE_PREFIX_PATH="$(brew --prefix qt6)"
+cmake --build build -j
+```
+
+The `CMAKE_PREFIX_PATH` bit points CMake at Homebrew's Qt6 - Homebrew
+installs it "keg-only" (not linked into a standard system location)
+specifically to avoid clashing with other Qt versions, so `find_package(Qt6
+...)` generally can't find it without that hint.
+
+**4. Run it:**
+
+```sh
+open build/PhotosByLarry.app
+```
+
+Since this is a fresh local build rather than something downloaded through
+a browser, macOS's Gatekeeper "unidentified developer" warning shouldn't
+come up at all - that only triggers on files that were actually
+downloaded/quarantined, not ones compiled locally on the same machine.
+
+---
+
+`CMakeLists.txt` passes `MACOSX_BUNDLE` to `add_executable()`, so on macOS
+this produces a real `.app` bundle (`build/PhotosByLarry.app`) rather than a
+bare executable - that flag is a no-op on other platforms, so the same
+`CMakeLists.txt` serves both. It also defaults `CMAKE_OSX_DEPLOYMENT_TARGET`
+to 12.0 if not already set (pass `-DCMAKE_OSX_DEPLOYMENT_TARGET=...` to
+`cmake` to override).
+
+This gets you a `.app` that runs on your own machine, but it is **not** yet
+a standalone, distributable bundle - it still dynamically links against
+your Homebrew-installed Qt and OpenCV, so it won't run as-is on a Mac that
+doesn't have those installed. To hand the app to someone else, you'd
+additionally need to:
+
+- Run Qt's `macdeployqt` on the built `.app` to copy the Qt frameworks in
+  and fix up their link paths (the standard, official tool for this).
+- Do the equivalent for OpenCV's dylibs, which has no built-in tool -
+  something like [`dylibbundler`](https://github.com/auriamg/macdylibbundler)
+  is the common choice - or statically link OpenCV instead.
+- Code-sign and notarize the bundle (requires an Apple Developer account) if
+  you don't want people to hit a Gatekeeper "unidentified developer"
+  warning on first launch.
+- Optionally give it a real icon: add an `.icns` file to the target's
+  sources with `MACOSX_PACKAGE_LOCATION "Resources"`, and set
+  `MACOSX_BUNDLE_ICON_FILE` to its filename in `CMakeLists.txt`.
+- Change `MACOSX_BUNDLE_GUI_IDENTIFIER` in `CMakeLists.txt` away from its
+  current placeholder (`com.example.photosbylarry`) to a real reverse-DNS
+  identifier you control, before distributing or code-signing it.
+
+None of this has been built or run on an actual Mac yet (this project has
+only ever been built on Linux) - the CMake changes are believed correct
+from reading Qt/CMake's own documentation for cross-platform bundle
+support, but treat the macOS path as unverified until someone actually
+builds it there.
 
 ## Architecture
 
