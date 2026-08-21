@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QJsonObject>
+#include <QRectF>
 
 // All adjustments that can be applied to a photo, non-destructively.
 // This is the thing that gets persisted to a sidecar file per photo, and
@@ -11,12 +12,25 @@ struct EditParameters
     double brightness = 0.0; // additive term, roughly -100..100
     double contrast = 1.0;   // multiplicative term, roughly 0.0..3.0 (1.0 = unchanged)
 
-    bool isIdentity() const { return brightness == 0.0 && contrast == 1.0; }
+    int rotationQuarterTurns = 0; // number of 90-degree clockwise turns, 0..3
 
-    bool operator==(const EditParameters &other) const
-    {
-        return brightness == other.brightness && contrast == other.contrast;
-    }
+    // Normalized [0,1] crop rect, relative to the ROTATED image (i.e. after
+    // rotationQuarterTurns has been applied) - resolution-independent, so the
+    // same value crops the full-resolution photo and any downscaled preview
+    // of it identically. (0,0,1,1) means "no crop".
+    QRectF cropRect = {0.0, 0.0, 1.0, 1.0};
+
+    bool isFullCrop() const;
+    bool isIdentity() const { return brightness == 0.0 && contrast == 1.0 && rotationQuarterTurns == 0 && isFullCrop(); }
+
+    // Rotating the photo also has to carry any existing crop selection along
+    // with it, transformed into the newly-rotated frame - otherwise a crop
+    // rect computed for the old orientation would select the wrong region
+    // (or an out-of-bounds one) once the dimensions change.
+    EditParameters rotatedClockwise() const;
+    EditParameters rotatedCounterClockwise() const;
+
+    bool operator==(const EditParameters &other) const;
     bool operator!=(const EditParameters &other) const { return !(*this == other); }
 
     QJsonObject toJson() const;

@@ -84,6 +84,14 @@ MainWindow::MainWindow(QWidget *parent)
             &MainWindow::onPreviewParametersChanged);
     connect(m_adjustmentsPanel, &AdjustmentsPanel::parametersCommitted, this,
             &MainWindow::onParametersCommitted);
+    connect(m_adjustmentsPanel, &AdjustmentsPanel::rotateClockwiseRequested, this,
+            &MainWindow::onRotateClockwiseRequested);
+    connect(m_adjustmentsPanel, &AdjustmentsPanel::rotateCounterClockwiseRequested, this,
+            &MainWindow::onRotateCounterClockwiseRequested);
+    connect(m_adjustmentsPanel, &AdjustmentsPanel::cropRequested, this, &MainWindow::onCropRequested);
+    connect(m_adjustmentsPanel, &AdjustmentsPanel::cropApplyRequested, this, &MainWindow::onCropApplyRequested);
+    connect(m_adjustmentsPanel, &AdjustmentsPanel::cropCancelRequested, this,
+            &MainWindow::onCropCancelRequested);
 }
 
 MainWindow::~MainWindow() = default;
@@ -101,6 +109,7 @@ void MainWindow::openDirectory()
     if (dir.isEmpty())
         return;
 
+    cancelCropIfActive();
     if (m_currentPhoto)
         m_currentPhoto->saveSidecar();
     m_currentPhoto = nullptr;
@@ -120,12 +129,14 @@ void MainWindow::onPhotoSelected(int row)
 
 void MainWindow::loadPhoto(int row)
 {
+    cancelCropIfActive();
     if (m_currentPhoto)
         m_currentPhoto->saveSidecar();
 
     Photo *photo = m_library->photoAt(row);
     if (!photo) {
         m_currentPhoto = nullptr;
+        m_currentRow = -1;
         m_currentSource.release();
         m_previewSource.release();
         m_imageViewer->clear();
@@ -134,6 +145,7 @@ void MainWindow::loadPhoto(int row)
     }
 
     m_currentPhoto = photo;
+    m_currentRow = row;
     m_currentSource = cv::imread(photo->filePath().toStdString(), cv::IMREAD_COLOR);
     m_previewSource = makePreviewSource(m_currentSource);
 
@@ -157,6 +169,7 @@ void MainWindow::onParametersCommitted(const EditParameters &params)
         return;
     m_currentPhoto->setEditParameters(params);
     m_currentPhoto->saveSidecar();
+    m_thumbnailModel->invalidateThumbnail(m_currentRow);
 
     // The slider has settled, so it's worth paying for one full-resolution
     // render to replace the (possibly softer, downscaled) live preview.
@@ -170,4 +183,79 @@ void MainWindow::updatePreview(const EditParameters &params, bool fullResolution
         return;
     const cv::Mat rendered = ImageProcessor::apply(source, params);
     m_imageViewer->setImage(ImageConversion::matToQImage(rendered));
+}
+
+void MainWindow::onRotateClockwiseRequested()
+{
+    rotate(true);
+}
+
+void MainWindow::onRotateCounterClockwiseRequested()
+{
+    rotate(false);
+}
+
+void MainWindow::rotate(bool clockwise)
+{
+    if (!m_currentPhoto)
+        return;
+
+    const EditParameters current = m_currentPhoto->editParameters();
+    const EditParameters rotated = clockwise ? current.rotatedClockwise() : current.rotatedCounterClockwise();
+
+    m_currentPhoto->setEditParameters(rotated);
+    m_currentPhoto->saveSidecar();
+    m_thumbnailModel->invalidateThumbnail(m_currentRow);
+
+    m_adjustmentsPanel->setParameters(rotated); // brightness/contrast unaffected, but keeps its base params in sync
+    updatePreview(rotated, /*fullResolution=*/true);
+}
+
+void MainWindow::onCropRequested()
+{
+    if (!m_currentPhoto || m_currentSource.empty() || m_imageViewer->isCropping())
+        return;
+
+    // Show the full (uncropped) rotated frame to crop from - keep rotation
+    // and brightness/contrast for reference, but ignore any existing crop
+    // while the user picks a new one.
+    EditParameters uncropped = m_currentPhoto->editParameters();
+    const QRectF previousCrop = uncropped.cropRect;
+    uncropped.cropRect = QRectF(0.0, 0.0, 1.0, 1.0);
+    const cv::Mat rendered = ImageProcessor::apply(m_currentSource, uncropped);
+    m_imageViewer->setImage(ImageConversion::matToQImage(rendered));
+
+    m_imageViewer->beginCropping(previousCrop);
+    m_adjustmentsPanel->setCropModeActive(true);
+}
+
+void MainWindow::onCropApplyRequested()
+{
+    if (!m_currentPhoto)
+        return;
+
+    EditParameters params = m_currentPhoto->editParameters();
+    params.cropRect = m_imageViewer->currentCropNormalizedRect();
+
+    m_currentPhoto->setEditParameters(params);
+    m_currentPhoto->saveSidecar();
+    m_thumbnailModel->invalidateThumbnail(m_currentRow);
+
+    m_imageViewer->endCropping();
+    m_adjustmentsPanel->setCropModeActive(false);
+    updatePreview(params, /*fullResolution=*/true);
+}
+
+void MainWindow::onCropCancelRequested()
+{
+    m_imageViewer->endCropping();
+    m_adjustmentsPanel->setCropModeActive(false);
+    if (m_currentPhoto)
+        updatePreview(m_currentPhoto->editParameters(), /*fullResolution=*/true);
+}
+
+void MainWindow::cancelCropIfActive()
+{
+    if (m_imageViewer->isCropping())
+        onCropCancelRequested();
 }

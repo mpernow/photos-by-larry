@@ -1,8 +1,20 @@
 #include "ImageViewer.h"
 
+#include "CropOverlayItem.h"
+
 #include <QGraphicsPixmapItem>
 #include <QGraphicsScene>
 #include <QWheelEvent>
+
+namespace
+{
+QRectF denormalize(const QRectF &normalized, const QRectF &imageRect)
+{
+    return QRectF(imageRect.x() + normalized.x() * imageRect.width(),
+                   imageRect.y() + normalized.y() * imageRect.height(), normalized.width() * imageRect.width(),
+                   normalized.height() * imageRect.height());
+}
+} // namespace
 
 ImageViewer::ImageViewer(QWidget *parent)
     : QGraphicsView(parent), m_scene(new QGraphicsScene(this)), m_pixmapItem(nullptr)
@@ -39,9 +51,56 @@ void ImageViewer::setImage(const QImage &image)
 
 void ImageViewer::clear()
 {
-    m_scene->clear();
+    m_scene->clear(); // also deletes m_cropOverlay, if it existed - don't leave that dangling
     m_pixmapItem = nullptr;
+    m_cropOverlay = nullptr;
     m_hasImage = false;
+}
+
+void ImageViewer::beginCropping(const QRectF &initialNormalizedRect)
+{
+    if (!m_pixmapItem)
+        return;
+
+    if (!m_cropOverlay) {
+        m_cropOverlay = new CropOverlayItem();
+        m_cropOverlay->setZValue(1.0); // paint (and hit-test) above the pixmap item
+        m_scene->addItem(m_cropOverlay);
+    }
+
+    const QRectF imageRect = m_pixmapItem->boundingRect();
+    m_cropOverlay->setImageRect(imageRect);
+    m_cropOverlay->setCropRect(denormalize(initialNormalizedRect, imageRect));
+    m_cropOverlay->setVisible(true);
+
+    // Cropping drags the overlay's own handles, not the view.
+    setDragMode(QGraphicsView::NoDrag);
+}
+
+QRectF ImageViewer::currentCropNormalizedRect() const
+{
+    if (!m_cropOverlay)
+        return QRectF(0.0, 0.0, 1.0, 1.0);
+
+    const QRectF &img = m_cropOverlay->imageRect();
+    const QRectF &crop = m_cropOverlay->cropRect();
+    if (img.width() <= 0 || img.height() <= 0)
+        return QRectF(0.0, 0.0, 1.0, 1.0);
+
+    return QRectF((crop.x() - img.x()) / img.width(), (crop.y() - img.y()) / img.height(),
+                   crop.width() / img.width(), crop.height() / img.height());
+}
+
+void ImageViewer::endCropping()
+{
+    if (m_cropOverlay)
+        m_cropOverlay->setVisible(false);
+    setDragMode(QGraphicsView::ScrollHandDrag);
+}
+
+bool ImageViewer::isCropping() const
+{
+    return m_cropOverlay && m_cropOverlay->isVisible();
 }
 
 void ImageViewer::wheelEvent(QWheelEvent *event)

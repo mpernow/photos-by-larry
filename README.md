@@ -32,13 +32,21 @@ The code is split into two layers under `src/`:
 
 - `Photo` — one image file plus its current `EditParameters`.
 - `PhotoLibrary` — the set of photos found in one opened directory.
-- `EditParameters` — the adjustable values for a photo (currently
-  brightness/contrast). Serializes to/from JSON.
+- `EditParameters` — the adjustable values for a photo: brightness, contrast,
+  a discrete rotation (`rotationQuarterTurns`, 0-3), and a crop rect
+  normalized to `[0,1]` *relative to the rotated image* - resolution
+  independent, so the same value crops the full-resolution photo and any
+  downscaled preview identically. Serializes to/from JSON.
 - `ImageProcessor::apply(source, params)` — pure function: original pixels +
-  parameters → rendered pixels. Stateless, so it can run on the UI thread for
-  live preview or off-thread for export/thumbnailing.
+  parameters → rendered pixels, applying rotate, then crop, then
+  brightness/contrast, in that order. Stateless, so it can run on the UI
+  thread for live preview or off-thread for export/thumbnailing.
 - `ImageConversion` — `cv::Mat` <-> `QImage` conversions (the seam between
   OpenCV and Qt).
+
+Rotating a photo that already has a crop transforms the crop rect to match
+(`EditParameters::rotatedClockwise/CounterClockwise`) rather than resetting
+it, so the selected region keeps referring to the same content.
 
 ### Non-destructive editing
 
@@ -59,24 +67,44 @@ do it.
   lazily on a background thread (`QtConcurrent`) and caches it.
 - `ImageViewer` (center) — `QGraphicsView`-based pan/zoom display of the
   current rendered image.
-- `AdjustmentsPanel` (right dock) — sliders for the current photo's edit
-  parameters. Slider movement emits a live-preview signal (fast, not
-  persisted); releasing the slider emits a "committed" signal that
-  `MainWindow` saves to the sidecar.
+- `AdjustmentsPanel` (right dock) — brightness/contrast sliders, rotate
+  buttons, and the crop tool for the current photo.
+- `CropOverlayItem` — a `QGraphicsItem` drawn on top of the image in
+  `ImageViewer` while cropping: darkens everything outside the selection and
+  lets the user drag its body to move it or its edges/corners to resize it.
 
-Data flow for editing: slider move -> `AdjustmentsPanel::previewParametersChanged`
--> `MainWindow::updatePreview` -> `ImageProcessor::apply` on the cached
-decoded source -> `ImageViewer::setImage`. Slider release additionally fires
-`parametersCommitted`, which updates the `Photo` and writes its sidecar.
+Two editing patterns coexist, depending on whether an operation has a
+meaningful "in progress" state:
+
+- **Brightness/contrast** (continuous, dragged): slider move ->
+  `AdjustmentsPanel::previewParametersChanged` -> `MainWindow::updatePreview`
+  -> `ImageProcessor::apply` on the cached decoded source ->
+  `ImageViewer::setImage`. Slider release additionally fires
+  `parametersCommitted`, which updates the `Photo` and writes its sidecar.
+- **Rotate** (discrete, no dragging): clicking a rotate button commits
+  immediately - there's no meaningful "live preview" for a 90° turn, so it
+  skips straight to updating the `Photo`, writing its sidecar, and
+  re-rendering.
+- **Crop** (a mode, not a single action): clicking "Crop" hands the full
+  (uncropped) rotated frame to `ImageViewer::beginCropping`, seeded with any
+  existing crop. The user drags the overlay freely with nothing persisted;
+  "Apply" reads the overlay's rect back via
+  `ImageViewer::currentCropNormalizedRect()`, commits it, and re-renders;
+  "Cancel" just discards it. Switching photos or opening a new directory
+  mid-crop cancels it first (`MainWindow::cancelCropIfActive`).
+
+Committing any edit also invalidates that photo's cached thumbnail
+(`ThumbnailModel::invalidateThumbnail`) so the thumbnail strip reflects
+rotate/crop/brightness changes too, not just the main viewer.
 
 ### What's deliberately not built yet
 
-This is infrastructure, not a feature-complete editor. Only brightness and
-contrast are wired up end-to-end, as a proof that the whole pipeline works.
-Adding a new adjustment means: a field on `EditParameters` (+ JSON
-read/write), a case in `ImageProcessor::apply`, and a control in
-`AdjustmentsPanel` — no changes needed to `Photo`, `PhotoLibrary`, or the
-persistence mechanism.
+This is infrastructure, not a feature-complete editor. Brightness, contrast,
+rotate, and crop are wired up end-to-end as a proof that the whole pipeline
+works - adding another adjustment in the same style as brightness/contrast
+means: a field on `EditParameters` (+ JSON read/write), a case in
+`ImageProcessor::apply`, and a control in `AdjustmentsPanel` — no changes
+needed to `Photo`, `PhotoLibrary`, or the persistence mechanism.
 
-Not yet implemented: crop/rotate, undo/redo history, export, RAW support,
-multi-select/batch editing, EXIF-based sorting.
+Not yet implemented: arbitrary-angle straightening, undo/redo history,
+export, RAW support, multi-select/batch editing, EXIF-based sorting.

@@ -1,7 +1,9 @@
 #include "ThumbnailModel.h"
 
 #include "ThumbnailGeometry.h"
+#include "core/EditParameters.h"
 #include "core/ImageConversion.h"
+#include "core/ImageProcessor.h"
 #include "core/Photo.h"
 #include "core/PhotoLibrary.h"
 
@@ -81,6 +83,7 @@ void ThumbnailModel::requestThumbnail(int row)
     if (!photo)
         return;
     const QString path = photo->filePath();
+    const EditParameters params = photo->editParameters();
 
     auto *watcher = new QFutureWatcher<QImage>(this);
     connect(watcher, &QFutureWatcher<QImage>::finished, this, [this, watcher, row]() {
@@ -88,11 +91,12 @@ void ThumbnailModel::requestThumbnail(int row)
         watcher->deleteLater();
     });
 
-    watcher->setFuture(QtConcurrent::run([path]() -> QImage {
+    watcher->setFuture(QtConcurrent::run([path, params]() -> QImage {
         const cv::Mat mat = cv::imread(path.toStdString(), cv::IMREAD_COLOR);
         if (mat.empty())
             return {};
-        const QImage image = ImageConversion::matToQImage(mat);
+        const cv::Mat rendered = ImageProcessor::apply(mat, params);
+        const QImage image = ImageConversion::matToQImage(rendered);
         return image.scaled(kThumbnailSize, kThumbnailSize, Qt::KeepAspectRatio,
                              Qt::SmoothTransformation);
     }));
@@ -107,4 +111,18 @@ void ThumbnailModel::onThumbnailReady(int row, const QImage &thumbnail)
     m_thumbnailCache.insert(row, QPixmap::fromImage(thumbnail));
     const QModelIndex idx = index(row, 0);
     emit dataChanged(idx, idx, {Qt::DecorationRole});
+}
+
+void ThumbnailModel::invalidateThumbnail(int row)
+{
+    m_thumbnailCache.remove(row);
+    // If a request for the old params is still in flight, it's dropped from
+    // m_pendingRows so a fresh one gets kicked off below - if that stale job
+    // finishes after the fresh one, it could briefly clobber the cache with
+    // outdated pixels until the next invalidate. Rare enough in practice
+    // (this only fires on discrete, user-paced commits) not to be worth a
+    // generation counter to fully close.
+    m_pendingRows.remove(row);
+    const QModelIndex idx = index(row, 0);
+    emit dataChanged(idx, idx, {Qt::DecorationRole}); // triggers a fresh requestThumbnail() on next paint
 }

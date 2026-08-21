@@ -25,6 +25,7 @@ set(APP_SOURCES
     src/ui/ThumbnailPanel.cpp
     src/ui/ImageViewer.cpp
     src/ui/AdjustmentsPanel.cpp
+    src/ui/CropOverlayItem.cpp
 )
 
 set(APP_HEADERS
@@ -39,6 +40,7 @@ set(APP_HEADERS
     src/ui/ThumbnailPanel.h
     src/ui/ImageViewer.h
     src/ui/AdjustmentsPanel.h
+    src/ui/CropOverlayItem.h
 )
 
 add_executable(PhotosByLarry ${APP_SOURCES} ${APP_HEADERS})

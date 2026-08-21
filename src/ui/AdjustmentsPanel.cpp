@@ -1,9 +1,12 @@
 #include "AdjustmentsPanel.h"
 
 #include <QFormLayout>
+#include <QHBoxLayout>
 #include <QLabel>
+#include <QPushButton>
 #include <QSignalBlocker>
 #include <QSlider>
+#include <QVBoxLayout>
 
 namespace
 {
@@ -15,16 +18,42 @@ AdjustmentsPanel::AdjustmentsPanel(QWidget *parent)
       m_brightnessSlider(new QSlider(Qt::Horizontal, this)),
       m_contrastSlider(new QSlider(Qt::Horizontal, this)),
       m_brightnessValueLabel(new QLabel(this)),
-      m_contrastValueLabel(new QLabel(this))
+      m_contrastValueLabel(new QLabel(this)),
+      m_rotateLeftButton(new QPushButton(tr("Rotate Left"), this)),
+      m_rotateRightButton(new QPushButton(tr("Rotate Right"), this)),
+      m_cropButton(new QPushButton(tr("Crop"), this)),
+      m_cropApplyButton(new QPushButton(tr("Apply"), this)),
+      m_cropCancelButton(new QPushButton(tr("Cancel"), this))
 {
     m_brightnessSlider->setRange(-100, 100);
     m_contrastSlider->setRange(0, 300);
 
-    auto *layout = new QFormLayout(this);
-    layout->addRow(tr("Brightness"), m_brightnessSlider);
-    layout->addRow(QString(), m_brightnessValueLabel);
-    layout->addRow(tr("Contrast"), m_contrastSlider);
-    layout->addRow(QString(), m_contrastValueLabel);
+    auto *sliderLayout = new QFormLayout;
+    sliderLayout->addRow(tr("Brightness"), m_brightnessSlider);
+    sliderLayout->addRow(QString(), m_brightnessValueLabel);
+    sliderLayout->addRow(tr("Contrast"), m_contrastSlider);
+    sliderLayout->addRow(QString(), m_contrastValueLabel);
+
+    auto *rotateLayout = new QHBoxLayout;
+    rotateLayout->addWidget(m_rotateLeftButton);
+    rotateLayout->addWidget(m_rotateRightButton);
+
+    m_cropApplyButton->setVisible(false);
+    m_cropCancelButton->setVisible(false);
+    auto *cropLayout = new QHBoxLayout;
+    cropLayout->addWidget(m_cropButton);
+    cropLayout->addWidget(m_cropApplyButton);
+    cropLayout->addWidget(m_cropCancelButton);
+
+    auto *mainLayout = new QVBoxLayout(this);
+    mainLayout->addLayout(sliderLayout);
+    mainLayout->addSpacing(12);
+    mainLayout->addWidget(new QLabel(tr("Rotate"), this));
+    mainLayout->addLayout(rotateLayout);
+    mainLayout->addSpacing(12);
+    mainLayout->addWidget(new QLabel(tr("Crop"), this));
+    mainLayout->addLayout(cropLayout);
+    mainLayout->addStretch(1);
 
     setParameters(EditParameters{});
     setEnabled(false); // no photo selected yet; QWidget::setEnabled disables the whole tree
@@ -41,10 +70,23 @@ AdjustmentsPanel::AdjustmentsPanel(QWidget *parent)
             [this]() { emit parametersCommitted(currentParameters()); });
     connect(m_contrastSlider, &QSlider::sliderReleased, this,
             [this]() { emit parametersCommitted(currentParameters()); });
+
+    connect(m_rotateLeftButton, &QPushButton::clicked, this,
+            &AdjustmentsPanel::rotateCounterClockwiseRequested);
+    connect(m_rotateRightButton, &QPushButton::clicked, this, &AdjustmentsPanel::rotateClockwiseRequested);
+
+    connect(m_cropButton, &QPushButton::clicked, this, &AdjustmentsPanel::cropRequested);
+    connect(m_cropApplyButton, &QPushButton::clicked, this, &AdjustmentsPanel::cropApplyRequested);
+    connect(m_cropCancelButton, &QPushButton::clicked, this, &AdjustmentsPanel::cropCancelRequested);
 }
 
 void AdjustmentsPanel::setParameters(const EditParameters &params)
 {
+    // currentParameters() below needs to carry rotation/crop forward even
+    // though only brightness/contrast have sliders - otherwise committing a
+    // brightness/contrast change would silently reset any existing rotate/crop.
+    m_baseParameters = params;
+
     const QSignalBlocker blockBrightness(m_brightnessSlider);
     const QSignalBlocker blockContrast(m_contrastSlider);
 
@@ -55,9 +97,24 @@ void AdjustmentsPanel::setParameters(const EditParameters &params)
     m_contrastValueLabel->setText(QString::number(params.contrast, 'f', 2));
 }
 
+void AdjustmentsPanel::setCropModeActive(bool active)
+{
+    m_cropButton->setVisible(!active);
+    m_cropApplyButton->setVisible(active);
+    m_cropCancelButton->setVisible(active);
+
+    // Rotating or adjusting brightness/contrast mid-crop would change the
+    // image's dimensions or re-render the background from under the overlay
+    // the user is actively positioning, so lock those out until they're done.
+    m_brightnessSlider->setEnabled(!active);
+    m_contrastSlider->setEnabled(!active);
+    m_rotateLeftButton->setEnabled(!active);
+    m_rotateRightButton->setEnabled(!active);
+}
+
 EditParameters AdjustmentsPanel::currentParameters() const
 {
-    EditParameters params;
+    EditParameters params = m_baseParameters;
     params.brightness = m_brightnessSlider->value();
     params.contrast = m_contrastSlider->value() / double(kContrastScale);
     return params;

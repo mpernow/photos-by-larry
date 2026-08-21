@@ -22,6 +22,12 @@ public:
     int rowCount(const QModelIndex &parent = QModelIndex()) const override;
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
 
+    // Drops the cached thumbnail for a row and re-fetches it (with its
+    // photo's current EditParameters applied) - call after an edit is
+    // committed for the currently-viewed photo, so its rotate/crop/etc.
+    // shows up in the thumbnail strip too, not just the main viewer.
+    void invalidateThumbnail(int row);
+
 private slots:
     void onLibraryChanged();
 
