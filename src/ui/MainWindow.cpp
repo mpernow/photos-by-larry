@@ -43,7 +43,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     auto *dock = new QDockWidget(tr("Adjustments"), this);
     dock->setWidget(m_adjustmentsPanel);
-    dock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
+    dock->setFeatures(QDockWidget::NoDockWidgetFeatures);
     addDockWidget(Qt::RightDockWidgetArea, dock);
 
     auto *fileMenu = menuBar()->addMenu(tr("&File"));
