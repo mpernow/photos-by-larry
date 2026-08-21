@@ -21,6 +21,11 @@ public:
     void setCropRect(const QRectF &rect);
     const QRectF &cropRect() const { return m_cropRect; }
 
+    // When set, resizing (any handle but Move) preserves whatever
+    // width/height ratio the crop rect had at the start of that drag,
+    // instead of resizing freely.
+    void setKeepAspectRatio(bool keep) { m_keepAspectRatio = keep; }
+
     QRectF boundingRect() const override;
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
 
@@ -34,12 +39,19 @@ private:
 
     Handle handleAt(const QPointF &pos) const;
     QRectF constrainRect(QRectF rect) const;
+    // Corrects a resized rect to preserve m_dragStartRect's aspect ratio,
+    // uniformly scaled up/down from whichever axis moved more, anchored at
+    // the fixed point implied by `handle` (the opposite corner for a corner
+    // handle, m_dragStartRect's center for an edge handle - a single edge
+    // has no natural opposite point to anchor on).
+    QRectF applyAspectLock(QRectF rect, Handle handle) const;
 
     static constexpr qreal kHandleSize = 12.0;
     static constexpr qreal kMinCropSize = 24.0; // pixels, in image space
 
     QRectF m_imageRect;
     QRectF m_cropRect;
+    bool m_keepAspectRatio = false;
 
     Handle m_activeHandle = Handle::None;
     QPointF m_dragStartPos;

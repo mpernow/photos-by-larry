@@ -27,6 +27,12 @@ public:
     void endCropping();
     bool isCropping() const;
 
+public slots:
+    // Whether resizing the crop overlay preserves its current aspect ratio.
+    // Stored here (not just forwarded) so it survives across crop sessions
+    // even if toggled while no overlay exists yet.
+    void setCropAspectRatioLocked(bool locked);
+
 protected:
     void wheelEvent(QWheelEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
@@ -37,6 +43,7 @@ private:
     QGraphicsScene *m_scene;
     QGraphicsPixmapItem *m_pixmapItem;
     CropOverlayItem *m_cropOverlay = nullptr;
+    bool m_cropAspectRatioLocked = false;
     bool m_hasImage = false;
     bool m_userAdjustedZoom = false; // once true, auto-fit no longer overrides the user's zoom
 };

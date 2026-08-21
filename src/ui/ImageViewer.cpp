@@ -71,10 +71,18 @@ void ImageViewer::beginCropping(const QRectF &initialNormalizedRect)
     const QRectF imageRect = m_pixmapItem->boundingRect();
     m_cropOverlay->setImageRect(imageRect);
     m_cropOverlay->setCropRect(denormalize(initialNormalizedRect, imageRect));
+    m_cropOverlay->setKeepAspectRatio(m_cropAspectRatioLocked);
     m_cropOverlay->setVisible(true);
 
     // Cropping drags the overlay's own handles, not the view.
     setDragMode(QGraphicsView::NoDrag);
+}
+
+void ImageViewer::setCropAspectRatioLocked(bool locked)
+{
+    m_cropAspectRatioLocked = locked;
+    if (m_cropOverlay)
+        m_cropOverlay->setKeepAspectRatio(locked);
 }
 
 QRectF ImageViewer::currentCropNormalizedRect() const

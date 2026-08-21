@@ -4,6 +4,8 @@
 #include <QPainter>
 #include <QPainterPath>
 
+#include <cmath>
+
 CropOverlayItem::CropOverlayItem(QGraphicsItem *parent) : QGraphicsItem(parent)
 {
     setAcceptedMouseButtons(Qt::LeftButton);
@@ -129,6 +131,54 @@ QRectF CropOverlayItem::constrainRect(QRectF rect) const
     return rect;
 }
 
+QRectF CropOverlayItem::applyAspectLock(QRectF rect, Handle handle) const
+{
+    if (m_dragStartRect.width() <= 0 || m_dragStartRect.height() <= 0)
+        return rect; // nothing sane to lock onto
+
+    // Uniform scale from the drag's starting size preserves its ratio
+    // exactly; pick whichever axis moved more (proportionally) as the one
+    // the user actually meant to drive, and scale both by that factor.
+    const qreal scaleW = rect.width() / m_dragStartRect.width();
+    const qreal scaleH = rect.height() / m_dragStartRect.height();
+    const qreal scale = std::abs(scaleW - 1.0) >= std::abs(scaleH - 1.0) ? scaleW : scaleH;
+
+    const qreal newWidth = m_dragStartRect.width() * scale;
+    const qreal newHeight = m_dragStartRect.height() * scale;
+
+    switch (handle) {
+    case Handle::TopLeft: {
+        const QPointF anchor = rect.bottomRight(); // opposite corner, unmoved by the raw drag above
+        return QRectF(anchor.x() - newWidth, anchor.y() - newHeight, newWidth, newHeight);
+    }
+    case Handle::TopRight: {
+        const QPointF anchor = rect.bottomLeft();
+        return QRectF(anchor.x(), anchor.y() - newHeight, newWidth, newHeight);
+    }
+    case Handle::BottomLeft: {
+        const QPointF anchor = rect.topRight();
+        return QRectF(anchor.x() - newWidth, anchor.y(), newWidth, newHeight);
+    }
+    case Handle::BottomRight: {
+        const QPointF anchor = rect.topLeft();
+        return QRectF(anchor.x(), anchor.y(), newWidth, newHeight);
+    }
+    case Handle::Top:
+    case Handle::Bottom:
+    case Handle::Left:
+    case Handle::Right: {
+        // A single edge has no natural opposite point to hold fixed, so
+        // scale symmetrically about the drag's starting center instead.
+        const QPointF center = m_dragStartRect.center();
+        return QRectF(center.x() - newWidth / 2.0, center.y() - newHeight / 2.0, newWidth, newHeight);
+    }
+    case Handle::Move:
+    case Handle::None:
+        return rect;
+    }
+    return rect;
+}
+
 void CropOverlayItem::mousePressEvent(QGraphicsSceneMouseEvent *event)
 {
     m_activeHandle = handleAt(event->pos());
@@ -180,6 +230,9 @@ void CropOverlayItem::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
     case Handle::None:
         break;
     }
+
+    if (m_keepAspectRatio && m_activeHandle != Handle::Move)
+        rect = applyAspectLock(rect, m_activeHandle);
 
     // constrainRect()'s minimum-size step is a no-op here since translating
     // doesn't change the rect's size, so it's safe to reuse for Move too.

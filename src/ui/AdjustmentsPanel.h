@@ -7,6 +7,7 @@
 class QSlider;
 class QLabel;
 class QPushButton;
+class QCheckBox;
 
 // Right-hand dock panel with the editing controls for the currently selected
 // photo: brightness/contrast sliders, rotate buttons, and the crop tool.
@@ -38,6 +39,7 @@ signals:
     void cropRequested();
     void cropApplyRequested();
     void cropCancelRequested();
+    void keepAspectRatioToggled(bool keep);
 
 private:
     EditParameters currentParameters() const;
@@ -55,4 +57,5 @@ private:
     QPushButton *m_cropButton;
     QPushButton *m_cropApplyButton;
     QPushButton *m_cropCancelButton;
+    QCheckBox *m_keepAspectRatioCheckBox;
 };

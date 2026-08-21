@@ -1,5 +1,6 @@
 #include "AdjustmentsPanel.h"
 
+#include <QCheckBox>
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -23,7 +24,8 @@ AdjustmentsPanel::AdjustmentsPanel(QWidget *parent)
       m_rotateRightButton(new QPushButton(tr("Rotate Right"), this)),
       m_cropButton(new QPushButton(tr("Crop"), this)),
       m_cropApplyButton(new QPushButton(tr("Apply"), this)),
-      m_cropCancelButton(new QPushButton(tr("Cancel"), this))
+      m_cropCancelButton(new QPushButton(tr("Cancel"), this)),
+      m_keepAspectRatioCheckBox(new QCheckBox(tr("Keep aspect ratio"), this))
 {
     m_brightnessSlider->setRange(-100, 100);
     m_contrastSlider->setRange(0, 300);
@@ -40,6 +42,7 @@ AdjustmentsPanel::AdjustmentsPanel(QWidget *parent)
 
     m_cropApplyButton->setVisible(false);
     m_cropCancelButton->setVisible(false);
+    m_keepAspectRatioCheckBox->setVisible(false);
     auto *cropLayout = new QHBoxLayout;
     cropLayout->addWidget(m_cropButton);
     cropLayout->addWidget(m_cropApplyButton);
@@ -53,6 +56,7 @@ AdjustmentsPanel::AdjustmentsPanel(QWidget *parent)
     mainLayout->addSpacing(12);
     mainLayout->addWidget(new QLabel(tr("Crop"), this));
     mainLayout->addLayout(cropLayout);
+    mainLayout->addWidget(m_keepAspectRatioCheckBox);
     mainLayout->addStretch(1);
 
     setParameters(EditParameters{});
@@ -78,6 +82,8 @@ AdjustmentsPanel::AdjustmentsPanel(QWidget *parent)
     connect(m_cropButton, &QPushButton::clicked, this, &AdjustmentsPanel::cropRequested);
     connect(m_cropApplyButton, &QPushButton::clicked, this, &AdjustmentsPanel::cropApplyRequested);
     connect(m_cropCancelButton, &QPushButton::clicked, this, &AdjustmentsPanel::cropCancelRequested);
+
+    connect(m_keepAspectRatioCheckBox, &QCheckBox::toggled, this, &AdjustmentsPanel::keepAspectRatioToggled);
 }
 
 void AdjustmentsPanel::setParameters(const EditParameters &params)
@@ -102,6 +108,7 @@ void AdjustmentsPanel::setCropModeActive(bool active)
     m_cropButton->setVisible(!active);
     m_cropApplyButton->setVisible(active);
     m_cropCancelButton->setVisible(active);
+    m_keepAspectRatioCheckBox->setVisible(active);
 
     // Rotating or adjusting brightness/contrast mid-crop would change the
     // image's dimensions or re-render the background from under the overlay

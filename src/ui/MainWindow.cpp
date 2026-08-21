@@ -92,6 +92,10 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_adjustmentsPanel, &AdjustmentsPanel::cropApplyRequested, this, &MainWindow::onCropApplyRequested);
     connect(m_adjustmentsPanel, &AdjustmentsPanel::cropCancelRequested, this,
             &MainWindow::onCropCancelRequested);
+    // Purely a crop-tool interaction setting - AdjustmentsPanel tells
+    // ImageViewer how to behave directly, no Photo/persistence involved.
+    connect(m_adjustmentsPanel, &AdjustmentsPanel::keepAspectRatioToggled, m_imageViewer,
+            &ImageViewer::setCropAspectRatioLocked);
 }
 
 MainWindow::~MainWindow() = default;
