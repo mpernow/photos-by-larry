@@ -1,5 +1,6 @@
 #include "ThumbnailPanel.h"
 
+#include "ThumbnailGeometry.h"
 #include "ThumbnailModel.h"
 
 #include <QItemSelectionModel>
@@ -13,12 +14,12 @@ ThumbnailPanel::ThumbnailPanel(QWidget *parent)
     m_listView->setFlow(QListView::TopToBottom);
     m_listView->setWrapping(false);
     m_listView->setResizeMode(QListView::Adjust);
-    // Not uniform: thumbnails decode asynchronously, so the first item's size
-    // hint is initially just a null placeholder. uniformItemSizes(true) would
-    // cache that as the size for every row, cropping real thumbnails once
-    // they load in - only a window resize would force a relayout to fix it.
-    m_listView->setIconSize(QSize(140, 140));
-    m_listView->setGridSize(QSize(160, 172));
+    // The model provides a fixed Qt::SizeHintRole matching kCellSize, so every
+    // row's layout size is known upfront without depending on (or triggering
+    // decode of) the actual thumbnail - see ThumbnailGeometry.h.
+    m_listView->setIconSize(ThumbnailGeometry::kIconSize);
+    m_listView->setGridSize(ThumbnailGeometry::kCellSize);
+    m_listView->setUniformItemSizes(true);
     m_listView->setSpacing(4);
     m_listView->setSelectionMode(QAbstractItemView::SingleSelection);
 

@@ -1,5 +1,6 @@
 #include "ThumbnailModel.h"
 
+#include "ThumbnailGeometry.h"
 #include "core/ImageConversion.h"
 #include "core/Photo.h"
 #include "core/PhotoLibrary.h"
@@ -11,7 +12,7 @@
 
 namespace
 {
-constexpr int kThumbnailSize = 140;
+constexpr int kThumbnailSize = ThumbnailGeometry::kIconSize.width();
 }
 
 ThumbnailModel::ThumbnailModel(PhotoLibrary *library, QObject *parent)
@@ -40,6 +41,11 @@ QVariant ThumbnailModel::data(const QModelIndex &index, int role) const
     switch (role) {
     case Qt::DisplayRole:
         return photo->fileName();
+    case Qt::SizeHintRole:
+        // Fixed and content-independent, so the delegate's sizeHint() can
+        // return immediately without looking at the (possibly not-yet-decoded)
+        // icon - see ThumbnailGeometry.h for why that matters.
+        return ThumbnailGeometry::kCellSize;
     case Qt::DecorationRole: {
         const auto it = m_thumbnailCache.constFind(row);
         if (it != m_thumbnailCache.constEnd())
