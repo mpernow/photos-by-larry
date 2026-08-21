@@ -17,14 +17,23 @@ ImageViewer::ImageViewer(QWidget *parent)
 void ImageViewer::setImage(const QImage &image)
 {
     const QPixmap pixmap = QPixmap::fromImage(image);
+    // A slider adjustment re-renders the same photo at the same dimensions
+    // (only pixel values change), so only reset the fit/zoom when the image
+    // is actually new - otherwise every slider tick would both redo needless
+    // work and keep yanking the view back to fit, undoing any zoom/pan the
+    // user had set.
+    const bool isNewImage = !m_pixmapItem || m_pixmapItem->pixmap().size() != pixmap.size();
+
     if (!m_pixmapItem)
         m_pixmapItem = m_scene->addPixmap(pixmap);
     else
         m_pixmapItem->setPixmap(pixmap);
 
-    m_scene->setSceneRect(pixmap.rect());
-    m_hasImage = true;
-    fitToView();
+    if (isNewImage) {
+        m_scene->setSceneRect(pixmap.rect());
+        m_hasImage = true;
+        fitToView();
+    }
 }
 
 void ImageViewer::clear()

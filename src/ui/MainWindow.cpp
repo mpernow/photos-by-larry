@@ -19,6 +19,33 @@
 #include <QStatusBar>
 
 #include <opencv2/imgcodecs.hpp>
+#include <opencv2/imgproc.hpp>
+
+#include <algorithm>
+
+namespace
+{
+// Cap for the downscaled copy used while a slider is actively being dragged.
+// The viewer fits the image to the window anyway, so anything past what the
+// window can show is wasted work - this just needs to comfortably cover any
+// reasonable window size and zoom level while staying cheap to re-process on
+// every mouse-move.
+constexpr int kPreviewMaxDimension = 1600;
+
+cv::Mat makePreviewSource(const cv::Mat &fullResolution)
+{
+    if (fullResolution.empty())
+        return fullResolution;
+    const int longEdge = std::max(fullResolution.cols, fullResolution.rows);
+    if (longEdge <= kPreviewMaxDimension)
+        return fullResolution;
+
+    const double scale = static_cast<double>(kPreviewMaxDimension) / longEdge;
+    cv::Mat preview;
+    cv::resize(fullResolution, preview, {}, scale, scale, cv::INTER_AREA);
+    return preview;
+}
+} // namespace
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent),
@@ -78,6 +105,7 @@ void MainWindow::openDirectory()
         m_currentPhoto->saveSidecar();
     m_currentPhoto = nullptr;
     m_currentSource.release();
+    m_previewSource.release();
     m_imageViewer->clear();
     m_adjustmentsPanel->setEnabled(false);
 
@@ -99,6 +127,7 @@ void MainWindow::loadPhoto(int row)
     if (!photo) {
         m_currentPhoto = nullptr;
         m_currentSource.release();
+        m_previewSource.release();
         m_imageViewer->clear();
         m_adjustmentsPanel->setEnabled(false);
         return;
@@ -106,16 +135,20 @@ void MainWindow::loadPhoto(int row)
 
     m_currentPhoto = photo;
     m_currentSource = cv::imread(photo->filePath().toStdString(), cv::IMREAD_COLOR);
+    m_previewSource = makePreviewSource(m_currentSource);
 
     m_adjustmentsPanel->setEnabled(!m_currentSource.empty());
     m_adjustmentsPanel->setParameters(photo->editParameters());
 
-    updatePreview(photo->editParameters());
+    updatePreview(photo->editParameters(), /*fullResolution=*/true);
 }
 
 void MainWindow::onPreviewParametersChanged(const EditParameters &params)
 {
-    updatePreview(params);
+    // Fast path while a slider is actively being dragged: render from the
+    // downscaled preview copy so every mouse-move stays cheap regardless of
+    // the original photo's resolution.
+    updatePreview(params, /*fullResolution=*/false);
 }
 
 void MainWindow::onParametersCommitted(const EditParameters &params)
@@ -124,12 +157,17 @@ void MainWindow::onParametersCommitted(const EditParameters &params)
         return;
     m_currentPhoto->setEditParameters(params);
     m_currentPhoto->saveSidecar();
+
+    // The slider has settled, so it's worth paying for one full-resolution
+    // render to replace the (possibly softer, downscaled) live preview.
+    updatePreview(params, /*fullResolution=*/true);
 }
 
-void MainWindow::updatePreview(const EditParameters &params)
+void MainWindow::updatePreview(const EditParameters &params, bool fullResolution)
 {
-    if (m_currentSource.empty())
+    const cv::Mat &source = fullResolution ? m_currentSource : m_previewSource;
+    if (source.empty())
         return;
-    const cv::Mat rendered = ImageProcessor::apply(m_currentSource, params);
+    const cv::Mat rendered = ImageProcessor::apply(source, params);
     m_imageViewer->setImage(ImageConversion::matToQImage(rendered));
 }

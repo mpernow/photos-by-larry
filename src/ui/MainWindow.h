@@ -33,7 +33,7 @@ private slots:
 
 private:
     void loadPhoto(int row);
-    void updatePreview(const EditParameters &params);
+    void updatePreview(const EditParameters &params, bool fullResolution);
 
     PhotoLibrary *m_library;
     ThumbnailModel *m_thumbnailModel;
@@ -42,5 +42,6 @@ private:
     AdjustmentsPanel *m_adjustmentsPanel;
 
     Photo *m_currentPhoto = nullptr;
-    cv::Mat m_currentSource; // decoded, never-modified pixels of the selected photo
+    cv::Mat m_currentSource; // decoded, never-modified, full-resolution pixels
+    cv::Mat m_previewSource; // downscaled copy of m_currentSource, for fast interactive preview
 };
