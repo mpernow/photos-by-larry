@@ -14,7 +14,10 @@
 #include <QCloseEvent>
 #include <QDockWidget>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QMenuBar>
+#include <QMessageBox>
+#include <QPushButton>
 #include <QSplitter>
 #include <QStatusBar>
 
@@ -53,7 +56,8 @@ MainWindow::MainWindow(QWidget *parent)
       m_thumbnailModel(new ThumbnailModel(m_library, this)),
       m_thumbnailPanel(new ThumbnailPanel(this)),
       m_imageViewer(new ImageViewer(this)),
-      m_adjustmentsPanel(new AdjustmentsPanel(this))
+      m_adjustmentsPanel(new AdjustmentsPanel(this)),
+      m_exportButton(new QPushButton(tr("Export..."), this))
 {
     setWindowTitle(tr("Photos by Larry"));
     resize(1280, 800);
@@ -77,8 +81,13 @@ MainWindow::MainWindow(QWidget *parent)
     QAction *openAction = fileMenu->addAction(tr("&Open Directory..."), this, &MainWindow::openDirectory);
     openAction->setShortcut(QKeySequence::Open);
 
-    statusBar();
+    // Requested to live as a corner button rather than a menu action - the
+    // status bar's permanent-widget area is the idiomatic Qt way to anchor a
+    // widget to the window's bottom-right, and stays there across resizes.
+    statusBar()->addPermanentWidget(m_exportButton);
+    updateExportEnabled();
 
+    connect(m_exportButton, &QPushButton::clicked, this, &MainWindow::onExportRequested);
     connect(m_thumbnailPanel, &ThumbnailPanel::photoSelected, this, &MainWindow::onPhotoSelected);
     connect(m_adjustmentsPanel, &AdjustmentsPanel::previewParametersChanged, this,
             &MainWindow::onPreviewParametersChanged);
@@ -121,6 +130,7 @@ void MainWindow::openDirectory()
     m_previewSource.release();
     m_imageViewer->clear();
     m_adjustmentsPanel->setEnabled(false);
+    updateExportEnabled();
 
     m_library->openDirectory(dir);
     statusBar()->showMessage(tr("%1 photo(s) found in %2").arg(m_library->count()).arg(dir), 5000);
@@ -145,6 +155,7 @@ void MainWindow::loadPhoto(int row)
         m_previewSource.release();
         m_imageViewer->clear();
         m_adjustmentsPanel->setEnabled(false);
+        updateExportEnabled();
         return;
     }
 
@@ -155,6 +166,7 @@ void MainWindow::loadPhoto(int row)
 
     m_adjustmentsPanel->setEnabled(!m_currentSource.empty());
     m_adjustmentsPanel->setParameters(photo->editParameters());
+    updateExportEnabled();
 
     updatePreview(photo->editParameters(), /*fullResolution=*/true);
 }
@@ -231,6 +243,7 @@ void MainWindow::onCropRequested()
 
     m_imageViewer->beginCropping(previousCrop);
     m_adjustmentsPanel->setCropModeActive(true);
+    updateExportEnabled(); // don't export the in-progress, not-yet-applied crop
 }
 
 void MainWindow::onCropApplyRequested()
@@ -247,6 +260,7 @@ void MainWindow::onCropApplyRequested()
 
     m_imageViewer->endCropping();
     m_adjustmentsPanel->setCropModeActive(false);
+    updateExportEnabled();
     updatePreview(params, /*fullResolution=*/true);
 }
 
@@ -254,6 +268,7 @@ void MainWindow::onCropCancelRequested()
 {
     m_imageViewer->endCropping();
     m_adjustmentsPanel->setCropModeActive(false);
+    updateExportEnabled();
     if (m_currentPhoto)
         updatePreview(m_currentPhoto->editParameters(), /*fullResolution=*/true);
 }
@@ -262,4 +277,42 @@ void MainWindow::cancelCropIfActive()
 {
     if (m_imageViewer->isCropping())
         onCropCancelRequested();
+}
+
+void MainWindow::updateExportEnabled()
+{
+    // Disabled with no photo loaded, and while an in-progress crop hasn't
+    // been applied yet - exporting mid-crop would silently ignore it, since
+    // it isn't part of the Photo's EditParameters until "Apply" commits it.
+    m_exportButton->setEnabled(m_currentPhoto && !m_currentSource.empty() && !m_imageViewer->isCropping());
+}
+
+void MainWindow::onExportRequested()
+{
+    if (!m_currentPhoto || m_currentSource.empty())
+        return;
+
+    const QFileInfo sourceInfo(m_currentPhoto->filePath());
+    // Default to a sibling file rather than the original name, so the (never
+    // touched otherwise) original isn't one dialog-confirm away from being
+    // silently overwritten by the flattened export.
+    const QString suggestedPath =
+        sourceInfo.absolutePath() + "/" + sourceInfo.completeBaseName() + "_edited." + sourceInfo.suffix();
+
+    const QString path =
+        QFileDialog::getSaveFileName(this, tr("Export Photo"), suggestedPath,
+                                      tr("JPEG (*.jpg *.jpeg);;PNG (*.png);;BMP (*.bmp);;TIFF (*.tif *.tiff)"));
+    if (path.isEmpty())
+        return;
+
+    // Always renders from the full-resolution source and the Photo's last
+    // *committed* EditParameters - never touches the sidecar, so edits stay
+    // just as revisable after exporting as before.
+    const cv::Mat rendered = ImageProcessor::apply(m_currentSource, m_currentPhoto->editParameters());
+    if (rendered.empty() || !cv::imwrite(path.toStdString(), rendered)) {
+        QMessageBox::warning(this, tr("Export Failed"), tr("Could not write the exported photo to:\n%1").arg(path));
+        return;
+    }
+
+    statusBar()->showMessage(tr("Exported to %1").arg(path), 5000);
 }

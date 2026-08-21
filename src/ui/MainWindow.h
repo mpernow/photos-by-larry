@@ -11,6 +11,7 @@ class ThumbnailPanel;
 class ImageViewer;
 class AdjustmentsPanel;
 class Photo;
+class QPushButton;
 
 // Top-level window. Owns the library/model layer and the three UI panels,
 // and wires them together: thumbnail selection loads a photo, slider moves
@@ -38,18 +39,21 @@ private slots:
     void onCropRequested();
     void onCropApplyRequested();
     void onCropCancelRequested();
+    void onExportRequested();
 
 private:
     void loadPhoto(int row);
     void updatePreview(const EditParameters &params, bool fullResolution);
     void rotate(bool clockwise);
     void cancelCropIfActive();
+    void updateExportEnabled();
 
     PhotoLibrary *m_library;
     ThumbnailModel *m_thumbnailModel;
     ThumbnailPanel *m_thumbnailPanel;
     ImageViewer *m_imageViewer;
     AdjustmentsPanel *m_adjustmentsPanel;
+    QPushButton *m_exportButton;
 
     Photo *m_currentPhoto = nullptr;
     int m_currentRow = -1; // index of m_currentPhoto in the library, for invalidating its thumbnail

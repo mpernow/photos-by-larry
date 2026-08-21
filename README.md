@@ -97,14 +97,34 @@ Committing any edit also invalidates that photo's cached thumbnail
 (`ThumbnailModel::invalidateThumbnail`) so the thumbnail strip reflects
 rotate/crop/brightness changes too, not just the main viewer.
 
+### Export
+
+The "Export..." button sits in the status bar's permanent-widget area (the
+window's bottom-right corner) rather than a menu, per how this was asked
+for. It renders the current photo through `ImageProcessor::apply` at full
+resolution with its last *committed* `EditParameters` and writes the result
+to a file the user picks (`cv::imwrite`) - it never touches the sidecar, so
+exporting doesn't affect how revisable the edit stays afterward. The
+suggested filename defaults to `<name>_edited.<ext>` next to the original
+rather than reusing the original's name, so a quick Export doesn't sit one
+dialog-confirm away from overwriting the untouched original. Disabled
+whenever there's no photo loaded, and while a crop is in progress but not
+yet applied (exporting then would silently ignore it, since it isn't part
+of `EditParameters` until "Apply" commits it).
+
+Export always acts on the single active photo - there's no batch/export-all
+yet, partly because the thumbnail grid is single-selection only
+(`QAbstractItemView::SingleSelection`), so there's no multi-photo selection
+to drive one.
+
 ### What's deliberately not built yet
 
 This is infrastructure, not a feature-complete editor. Brightness, contrast,
-rotate, and crop are wired up end-to-end as a proof that the whole pipeline
-works - adding another adjustment in the same style as brightness/contrast
-means: a field on `EditParameters` (+ JSON read/write), a case in
-`ImageProcessor::apply`, and a control in `AdjustmentsPanel` — no changes
-needed to `Photo`, `PhotoLibrary`, or the persistence mechanism.
+rotate, crop, and export are wired up end-to-end as a proof that the whole
+pipeline works - adding another adjustment in the same style as
+brightness/contrast means: a field on `EditParameters` (+ JSON read/write), a
+case in `ImageProcessor::apply`, and a control in `AdjustmentsPanel` — no
+changes needed to `Photo`, `PhotoLibrary`, or the persistence mechanism.
 
-Not yet implemented: arbitrary-angle straightening, undo/redo history,
-export, RAW support, multi-select/batch editing, EXIF-based sorting.
+Not yet implemented: arbitrary-angle straightening, undo/redo history, RAW
+support, batch export, multi-select/batch editing, EXIF-based sorting.

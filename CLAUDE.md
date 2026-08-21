@@ -100,6 +100,16 @@ meaningful "in progress" state:
 Committing any edit invalidates that photo's cached thumbnail
 (`ThumbnailModel::invalidateThumbnail`).
 
+The "Export..." button lives in the status bar's permanent-widget area
+(bottom-right corner) rather than a menu — that placement was a specific
+ask, not a default, so preserve it rather than "cleaning it up" into a menu
+action. It renders `m_currentSource` through `ImageProcessor::apply` with
+the photo's last *committed* `EditParameters` and writes the result via
+`cv::imwrite` to a file the user picks; it never touches the sidecar, so
+exporting doesn't affect how revisable the edit stays. Acts on the single
+active photo only — the thumbnail grid is single-selection, so there's no
+multi-photo selection to drive a batch export from yet.
+
 ### Preview vs. full-resolution rendering
 
 `MainWindow` keeps two decoded copies of the selected photo: `m_currentSource`
