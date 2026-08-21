@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <vector>
 
 namespace
 {
@@ -16,6 +17,32 @@ cv::Rect cropRectPixels(const QRectF &normalized, int width, int height)
     const int w = std::clamp(static_cast<int>(std::lround(normalized.width() * width)), 1, width - x);
     const int h = std::clamp(static_cast<int>(std::lround(normalized.height() * height)), 1, height - y);
     return cv::Rect(x, y, w, h);
+}
+
+// Simple per-channel gain shift rather than true Kelvin-based color science -
+// consistent with the rest of this pipeline's "plain linear ops" approach.
+// temperature/tint are both roughly -100..100; 0 leaves the image untouched.
+cv::Mat applyWhiteBalance(const cv::Mat &source, double temperature, double tint)
+{
+    if (temperature == 0.0 && tint == 0.0)
+        return source;
+
+    constexpr double kTemperatureStrength = 0.003; // ±100 temperature -> up to ±30% red/blue gain
+    constexpr double kTintStrength = 0.003;         // ±100 tint -> up to ±30% green gain
+
+    const double blueGain = 1.0 - temperature * kTemperatureStrength + tint * kTintStrength * 0.5;
+    const double greenGain = 1.0 - tint * kTintStrength;
+    const double redGain = 1.0 + temperature * kTemperatureStrength + tint * kTintStrength * 0.5;
+
+    std::vector<cv::Mat> channels; // BGR order, matching cv::imread's default
+    cv::split(source, channels);
+    channels[0].convertTo(channels[0], -1, blueGain, 0.0);
+    channels[1].convertTo(channels[1], -1, greenGain, 0.0);
+    channels[2].convertTo(channels[2], -1, redGain, 0.0);
+
+    cv::Mat result;
+    cv::merge(channels, result);
+    return result;
 }
 } // namespace
 
@@ -44,6 +71,8 @@ cv::Mat ImageProcessor::apply(const cv::Mat &source, const EditParameters &param
 
     if (!params.isFullCrop())
         working = working(cropRectPixels(params.cropRect, working.cols, working.rows));
+
+    working = applyWhiteBalance(working, params.temperature, params.tint);
 
     if (params.brightness == 0.0 && params.contrast == 1.0)
         return working.clone(); // detach from source's buffer before handing back

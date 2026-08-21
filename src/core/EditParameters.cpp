@@ -42,6 +42,7 @@ EditParameters EditParameters::rotatedCounterClockwise() const
 bool EditParameters::operator==(const EditParameters &other) const
 {
     return fuzzyEquals(brightness, other.brightness) && fuzzyEquals(contrast, other.contrast) &&
+           fuzzyEquals(temperature, other.temperature) && fuzzyEquals(tint, other.tint) &&
            rotationQuarterTurns == other.rotationQuarterTurns &&
            fuzzyEquals(cropRect.x(), other.cropRect.x()) && fuzzyEquals(cropRect.y(), other.cropRect.y()) &&
            fuzzyEquals(cropRect.width(), other.cropRect.width()) &&
@@ -53,6 +54,8 @@ QJsonObject EditParameters::toJson() const
     QJsonObject object;
     object["brightness"] = brightness;
     object["contrast"] = contrast;
+    object["temperature"] = temperature;
+    object["tint"] = tint;
     object["rotationQuarterTurns"] = rotationQuarterTurns;
     object["cropX"] = cropRect.x();
     object["cropY"] = cropRect.y();
@@ -66,6 +69,8 @@ EditParameters EditParameters::fromJson(const QJsonObject &object)
     EditParameters params;
     params.brightness = object.value("brightness").toDouble(params.brightness);
     params.contrast = object.value("contrast").toDouble(params.contrast);
+    params.temperature = object.value("temperature").toDouble(params.temperature);
+    params.tint = object.value("tint").toDouble(params.tint);
     params.rotationQuarterTurns = object.value("rotationQuarterTurns").toInt(params.rotationQuarterTurns);
     params.cropRect = QRectF(object.value("cropX").toDouble(params.cropRect.x()),
                               object.value("cropY").toDouble(params.cropRect.y()),

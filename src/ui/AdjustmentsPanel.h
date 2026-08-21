@@ -10,9 +10,10 @@ class QPushButton;
 class QCheckBox;
 
 // Right-hand dock panel with the editing controls for the currently selected
-// photo: brightness/contrast sliders, rotate buttons, and the crop tool.
+// photo: brightness/contrast/temperature/tint sliders, rotate buttons, and
+// the crop tool.
 //
-// Brightness/contrast follow a live-preview/commit split: previewParametersChanged
+// The sliders follow a live-preview/commit split: previewParametersChanged
 // fires on every slider move (fast, not persisted), parametersCommitted fires
 // once the slider is released (persisted). Rotate and crop are discrete
 // actions instead, each "committed" the instant it happens, so they get their
@@ -46,11 +47,15 @@ private:
     void emitPreview();
 
     EditParameters m_baseParameters; // last full params set via setParameters(); carries rotation/crop
-                                      // forward since only brightness/contrast have sliders
+                                      // forward since only the sliders below have direct controls
     QSlider *m_brightnessSlider;
     QSlider *m_contrastSlider;
+    QSlider *m_temperatureSlider;
+    QSlider *m_tintSlider;
     QLabel *m_brightnessValueLabel;
     QLabel *m_contrastValueLabel;
+    QLabel *m_temperatureValueLabel;
+    QLabel *m_tintValueLabel;
 
     QPushButton *m_rotateLeftButton;
     QPushButton *m_rotateRightButton;

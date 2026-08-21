@@ -35,17 +35,19 @@ The code is split into two layers under `src/`:
 - `Photo` — one image file plus its current `EditParameters`.
 - `PhotoLibrary` — the set of photos found in one opened directory.
 - `EditParameters` — the adjustable values for a photo: brightness, contrast,
-  a discrete rotation (`rotationQuarterTurns`, 0-3), and a crop rect
-  normalized to `[0,1]` *relative to the rotated image* — resolution
-  independent, so the same value crops the full-resolution photo and any
-  downscaled preview identically. Serializes to/from JSON. Rotating a photo
-  that already has a crop transforms the crop rect to match
+  white balance (`temperature`/`tint` — simple per-channel gain shifts, not
+  true Kelvin-based color science), a discrete rotation
+  (`rotationQuarterTurns`, 0-3), and a crop rect normalized to `[0,1]`
+  *relative to the rotated image* — resolution independent, so the same
+  value crops the full-resolution photo and any downscaled preview
+  identically. Serializes to/from JSON. Rotating a photo that already has a
+  crop transforms the crop rect to match
   (`rotatedClockwise`/`rotatedCounterClockwise`) rather than resetting it, so
   the selected region keeps referring to the same content.
 - `ImageProcessor::apply(source, params)` — pure function: original pixels +
-  parameters → rendered pixels, applying rotate, then crop, then
-  brightness/contrast, in that order. Stateless, so it can run on the UI
-  thread for live preview or off-thread for export/thumbnailing.
+  parameters → rendered pixels, applying rotate, then crop, then white
+  balance, then brightness/contrast, in that order. Stateless, so it can run
+  on the UI thread for live preview or off-thread for export/thumbnailing.
 - `ImageConversion` — `cv::Mat` <-> `QImage` conversions (the seam between
   OpenCV and Qt); every conversion deep-copies.
 
@@ -65,11 +67,11 @@ the `Photo`/`PhotoLibrary` API wouldn't need to change to do it.
   `QAbstractListModel` over `PhotoLibrary` that decodes each thumbnail
   lazily on a background thread (`QtConcurrent`) and caches it. Thumbnails
   are rendered through `ImageProcessor` with the photo's current
-  `EditParameters`, so they reflect rotate/crop/brightness edits too.
+  `EditParameters`, so they reflect rotate/crop/brightness/etc. edits too.
 - `ImageViewer` (center) — `QGraphicsView`-based pan/zoom display of the
   current rendered image; also hosts `CropOverlayItem` while cropping.
-- `AdjustmentsPanel` (right dock) — brightness/contrast sliders, rotate
-  buttons, and the crop tool for the current photo.
+- `AdjustmentsPanel` (right dock) — brightness/contrast/temperature/tint
+  sliders, rotate buttons, and the crop tool for the current photo.
 - `CropOverlayItem` — a `QGraphicsItem` drawn on top of the image while
   cropping: darkens everything outside the selection and lets the user drag
   its body to move it or its edges/corners to resize it. `ImageViewer` only
@@ -80,13 +82,14 @@ the `Photo`/`PhotoLibrary` API wouldn't need to change to do it.
 Two editing patterns coexist, depending on whether an operation has a
 meaningful "in progress" state:
 
-- **Brightness/contrast** (continuous, dragged): slider move ->
-  `AdjustmentsPanel::previewParametersChanged` -> `MainWindow::updatePreview`
-  -> `ImageProcessor::apply` -> `ImageViewer::setImage`. Slider release
-  additionally fires `parametersCommitted`, which updates the `Photo` and
-  writes its sidecar. `AdjustmentsPanel` tracks a full `m_baseParameters`
-  (not just the slider values) so committing a brightness/contrast change
-  carries the photo's existing rotation/crop forward instead of wiping it.
+- **Brightness/contrast/temperature/tint** (continuous, dragged): slider move
+  -> `AdjustmentsPanel::previewParametersChanged` ->
+  `MainWindow::updatePreview` -> `ImageProcessor::apply` ->
+  `ImageViewer::setImage`. Slider release additionally fires
+  `parametersCommitted`, which updates the `Photo` and writes its sidecar.
+  `AdjustmentsPanel` tracks a full `m_baseParameters` (not just the slider
+  values) so committing a slider change carries the photo's existing
+  rotation/crop forward instead of wiping it.
 - **Rotate** (discrete, no dragging): clicking a rotate button commits
   immediately — skips straight to updating the `Photo`, writing its sidecar,
   and re-rendering.

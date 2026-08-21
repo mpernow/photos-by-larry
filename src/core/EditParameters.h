@@ -12,6 +12,11 @@ struct EditParameters
     double brightness = 0.0; // additive term, roughly -100..100
     double contrast = 1.0;   // multiplicative term, roughly 0.0..3.0 (1.0 = unchanged)
 
+    // White balance, as simple per-channel gain shifts rather than true
+    // Kelvin-based color science - both roughly -100..100, 0 = neutral.
+    double temperature = 0.0; // positive = warmer (more red/less blue), negative = cooler
+    double tint = 0.0;        // positive = more magenta, negative = more green
+
     int rotationQuarterTurns = 0; // number of 90-degree clockwise turns, 0..3
 
     // Normalized [0,1] crop rect, relative to the ROTATED image (i.e. after
@@ -21,7 +26,11 @@ struct EditParameters
     QRectF cropRect = {0.0, 0.0, 1.0, 1.0};
 
     bool isFullCrop() const;
-    bool isIdentity() const { return brightness == 0.0 && contrast == 1.0 && rotationQuarterTurns == 0 && isFullCrop(); }
+    bool isIdentity() const
+    {
+        return brightness == 0.0 && contrast == 1.0 && temperature == 0.0 && tint == 0.0 &&
+               rotationQuarterTurns == 0 && isFullCrop();
+    }
 
     // Rotating the photo also has to carry any existing crop selection along
     // with it, transformed into the newly-rotated frame - otherwise a crop

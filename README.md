@@ -33,14 +33,16 @@ The code is split into two layers under `src/`:
 - `Photo` — one image file plus its current `EditParameters`.
 - `PhotoLibrary` — the set of photos found in one opened directory.
 - `EditParameters` — the adjustable values for a photo: brightness, contrast,
-  a discrete rotation (`rotationQuarterTurns`, 0-3), and a crop rect
-  normalized to `[0,1]` *relative to the rotated image* - resolution
-  independent, so the same value crops the full-resolution photo and any
-  downscaled preview identically. Serializes to/from JSON.
+  white balance (`temperature`/`tint`, simple per-channel gain shifts rather
+  than true Kelvin-based color science), a discrete rotation
+  (`rotationQuarterTurns`, 0-3), and a crop rect normalized to `[0,1]`
+  *relative to the rotated image* - resolution independent, so the same
+  value crops the full-resolution photo and any downscaled preview
+  identically. Serializes to/from JSON.
 - `ImageProcessor::apply(source, params)` — pure function: original pixels +
-  parameters → rendered pixels, applying rotate, then crop, then
-  brightness/contrast, in that order. Stateless, so it can run on the UI
-  thread for live preview or off-thread for export/thumbnailing.
+  parameters → rendered pixels, applying rotate, then crop, then white
+  balance, then brightness/contrast, in that order. Stateless, so it can run
+  on the UI thread for live preview or off-thread for export/thumbnailing.
 - `ImageConversion` — `cv::Mat` <-> `QImage` conversions (the seam between
   OpenCV and Qt).
 
@@ -67,8 +69,8 @@ do it.
   lazily on a background thread (`QtConcurrent`) and caches it.
 - `ImageViewer` (center) — `QGraphicsView`-based pan/zoom display of the
   current rendered image.
-- `AdjustmentsPanel` (right dock) — brightness/contrast sliders, rotate
-  buttons, and the crop tool for the current photo.
+- `AdjustmentsPanel` (right dock) — brightness/contrast/temperature/tint
+  sliders, rotate buttons, and the crop tool for the current photo.
 - `CropOverlayItem` — a `QGraphicsItem` drawn on top of the image in
   `ImageViewer` while cropping: darkens everything outside the selection and
   lets the user drag its body to move it or its edges/corners to resize it.
@@ -76,7 +78,7 @@ do it.
 Two editing patterns coexist, depending on whether an operation has a
 meaningful "in progress" state:
 
-- **Brightness/contrast** (continuous, dragged): slider move ->
+- **Brightness/contrast/temperature/tint** (continuous, dragged): slider move ->
   `AdjustmentsPanel::previewParametersChanged` -> `MainWindow::updatePreview`
   -> `ImageProcessor::apply` on the cached decoded source ->
   `ImageViewer::setImage`. Slider release additionally fires
@@ -120,11 +122,12 @@ to drive one.
 ### What's deliberately not built yet
 
 This is infrastructure, not a feature-complete editor. Brightness, contrast,
-rotate, crop, and export are wired up end-to-end as a proof that the whole
-pipeline works - adding another adjustment in the same style as
-brightness/contrast means: a field on `EditParameters` (+ JSON read/write), a
-case in `ImageProcessor::apply`, and a control in `AdjustmentsPanel` — no
-changes needed to `Photo`, `PhotoLibrary`, or the persistence mechanism.
+white balance, rotate, crop, and export are wired up end-to-end as a proof
+that the whole pipeline works - adding another adjustment in the same style
+means: a field on `EditParameters` (+ JSON read/write), a case in
+`ImageProcessor::apply`, and a control in `AdjustmentsPanel` — no changes
+needed to `Photo`, `PhotoLibrary`, or the persistence mechanism. White
+balance (temperature/tint) is a real example of exactly that extension path.
 
 Not yet implemented: arbitrary-angle straightening, undo/redo history, RAW
 support, batch export, multi-select/batch editing, EXIF-based sorting.
