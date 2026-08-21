@@ -32,6 +32,7 @@ void ImageViewer::setImage(const QImage &image)
     if (isNewImage) {
         m_scene->setSceneRect(pixmap.rect());
         m_hasImage = true;
+        m_userAdjustedZoom = false; // a freshly selected photo should start fit-to-view
         fitToView();
     }
 }
@@ -51,12 +52,18 @@ void ImageViewer::wheelEvent(QWheelEvent *event)
     }
     const double factor = event->angleDelta().y() > 0 ? 1.15 : 1.0 / 1.15;
     scale(factor, factor);
+    m_userAdjustedZoom = true;
 }
 
 void ImageViewer::resizeEvent(QResizeEvent *event)
 {
     QGraphicsView::resizeEvent(event);
-    if (m_hasImage)
+    // Zooming in past the fit level makes a scrollbar appear, which resizes
+    // the viewport and re-enters this handler - if we always re-fit here,
+    // that immediately snaps the image straight back to "fit", so zooming in
+    // looks like it does nothing (zooming out never shows a scrollbar, so it
+    // never hit this). Only auto-fit until the user actually picks a zoom.
+    if (m_hasImage && !m_userAdjustedZoom)
         fitToView();
 }
 

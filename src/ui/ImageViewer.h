@@ -26,4 +26,5 @@ private:
     QGraphicsScene *m_scene;
     QGraphicsPixmapItem *m_pixmapItem;
     bool m_hasImage = false;
+    bool m_userAdjustedZoom = false; // once true, auto-fit no longer overrides the user's zoom
 };
