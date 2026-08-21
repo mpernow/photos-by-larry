@@ -46,8 +46,9 @@ private:
     // has no natural opposite point to anchor on).
     QRectF applyAspectLock(QRectF rect, Handle handle) const;
 
-    static constexpr qreal kHandleSize = 12.0;
-    static constexpr qreal kMinCropSize = 24.0; // pixels, in image space
+    static constexpr qreal kHandleSize = 24.0; // was 12 - too small a click/drag target
+    static constexpr qreal kMinCropSize = 48.0; // pixels, in image space; scaled up alongside kHandleSize
+                                                 // so the corner handles don't overlap badly at minimum size
 
     QRectF m_imageRect;
     QRectF m_cropRect;
