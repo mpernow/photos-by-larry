@@ -94,10 +94,22 @@ meaningful "in progress" state:
   `ImageViewer::currentCropNormalizedRect()`, commits it, and re-renders;
   "Cancel" just discards it. Switching photos or opening a new directory
   mid-crop cancels it first (`MainWindow::cancelCropIfActive`).
+- **Copy/Paste Settings** (discrete, no dragging): "Copy Settings" snapshots
+  the current photo's `EditParameters` into `MainWindow::m_copiedParameters`
+  (an in-memory, session-only clipboard - not written anywhere, and not tied
+  to the source photo once copied, so it works across directories too).
+  "Paste Settings" applies that snapshot to whichever photo is currently
+  selected and commits immediately, *except* the crop rect: crop is specific
+  to the photo it was drawn on, so pasting keeps the destination's own crop
+  rather than overwriting it with a rectangle that has no relationship to
+  its content. "Paste" is disabled until something has been copied, and
+  while a crop is in progress (it would re-render the background out from
+  under the crop overlay); "Copy" is read-only and stays available even
+  mid-crop.
 
 Committing any edit also invalidates that photo's cached thumbnail
 (`ThumbnailModel::invalidateThumbnail`) so the thumbnail strip reflects
-rotate/crop/brightness changes too, not just the main viewer.
+rotate/crop/brightness/etc. changes too, not just the main viewer.
 
 ### Export
 

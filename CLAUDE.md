@@ -71,7 +71,8 @@ the `Photo`/`PhotoLibrary` API wouldn't need to change to do it.
 - `ImageViewer` (center) — `QGraphicsView`-based pan/zoom display of the
   current rendered image; also hosts `CropOverlayItem` while cropping.
 - `AdjustmentsPanel` (right dock) — brightness/contrast/temperature/tint
-  sliders, rotate buttons, and the crop tool for the current photo.
+  sliders, rotate buttons, the crop tool, and Copy/Paste Settings for the
+  current photo.
 - `CropOverlayItem` — a `QGraphicsItem` drawn on top of the image while
   cropping: darkens everything outside the selection and lets the user drag
   its body to move it or its edges/corners to resize it. `ImageViewer` only
@@ -99,6 +100,14 @@ meaningful "in progress" state:
   the overlay's rect back and commits it; "Cancel" discards it. Switching
   photos or opening a new directory mid-crop cancels it first
   (`MainWindow::cancelCropIfActive`).
+- **Copy/Paste Settings** (discrete): "Copy" snapshots the current photo's
+  `EditParameters` into an in-memory `MainWindow::m_copiedParameters` —
+  session-only, not written anywhere, not tied to the source photo, so it
+  works across directories. "Paste" applies it to whatever's currently
+  selected *except* the crop rect, which is left as the destination's own
+  (a crop drawn for one photo's content/aspect ratio has no reason to mean
+  anything on another). Paste is disabled until something's copied and
+  while mid-crop; Copy is read-only and stays available even then.
 
 Committing any edit invalidates that photo's cached thumbnail
 (`ThumbnailModel::invalidateThumbnail`).

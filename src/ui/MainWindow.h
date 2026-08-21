@@ -40,6 +40,8 @@ private slots:
     void onCropApplyRequested();
     void onCropCancelRequested();
     void onExportRequested();
+    void onCopySettingsRequested();
+    void onPasteSettingsRequested();
 
 private:
     void loadPhoto(int row);
@@ -59,4 +61,7 @@ private:
     int m_currentRow = -1; // index of m_currentPhoto in the library, for invalidating its thumbnail
     cv::Mat m_currentSource; // decoded, never-modified, full-resolution pixels
     cv::Mat m_previewSource; // downscaled copy of m_currentSource, for fast interactive preview
+
+    EditParameters m_copiedParameters; // last "Copy Settings" snapshot; meaningless unless m_hasCopiedParameters
+    bool m_hasCopiedParameters = false;
 };

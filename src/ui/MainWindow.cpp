@@ -105,6 +105,10 @@ MainWindow::MainWindow(QWidget *parent)
     // ImageViewer how to behave directly, no Photo/persistence involved.
     connect(m_adjustmentsPanel, &AdjustmentsPanel::keepAspectRatioToggled, m_imageViewer,
             &ImageViewer::setCropAspectRatioLocked);
+    connect(m_adjustmentsPanel, &AdjustmentsPanel::copySettingsRequested, this,
+            &MainWindow::onCopySettingsRequested);
+    connect(m_adjustmentsPanel, &AdjustmentsPanel::pasteSettingsRequested, this,
+            &MainWindow::onPasteSettingsRequested);
 }
 
 MainWindow::~MainWindow() = default;
@@ -315,4 +319,36 @@ void MainWindow::onExportRequested()
     }
 
     statusBar()->showMessage(tr("Exported to %1").arg(path), 5000);
+}
+
+void MainWindow::onCopySettingsRequested()
+{
+    if (!m_currentPhoto)
+        return;
+
+    m_copiedParameters = m_currentPhoto->editParameters();
+    m_hasCopiedParameters = true;
+    m_adjustmentsPanel->setPasteSettingsEnabled(true);
+    statusBar()->showMessage(tr("Copied settings from %1").arg(m_currentPhoto->fileName()), 5000);
+}
+
+void MainWindow::onPasteSettingsRequested()
+{
+    if (!m_currentPhoto || !m_hasCopiedParameters || m_imageViewer->isCropping())
+        return;
+
+    EditParameters params = m_copiedParameters;
+    // The crop rect is specific to the photo it was drawn on (framed around
+    // its own content, and possibly its own aspect ratio) - pasting it onto
+    // an unrelated photo has no reason to land on anything meaningful, so
+    // keep the destination's own crop rather than overwriting it.
+    params.cropRect = m_currentPhoto->editParameters().cropRect;
+
+    m_currentPhoto->setEditParameters(params);
+    m_currentPhoto->saveSidecar();
+    m_thumbnailModel->invalidateThumbnail(m_currentRow);
+
+    m_adjustmentsPanel->setParameters(params);
+    updatePreview(params, /*fullResolution=*/true);
+    statusBar()->showMessage(tr("Pasted settings onto %1").arg(m_currentPhoto->fileName()), 5000);
 }

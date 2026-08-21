@@ -30,6 +30,10 @@ public:
     void setParameters(const EditParameters &params);
     void setCropModeActive(bool active);
 
+    // Whether a previous "Copy Settings" has left something to paste. Paste
+    // is further gated on not being mid-crop (see setCropModeActive).
+    void setPasteSettingsEnabled(bool enabled);
+
 signals:
     void previewParametersChanged(const EditParameters &params);
     void parametersCommitted(const EditParameters &params);
@@ -42,9 +46,13 @@ signals:
     void cropCancelRequested();
     void keepAspectRatioToggled(bool keep);
 
+    void copySettingsRequested();
+    void pasteSettingsRequested();
+
 private:
     EditParameters currentParameters() const;
     void emitPreview();
+    void updatePasteButtonEnabled();
 
     EditParameters m_baseParameters; // last full params set via setParameters(); carries rotation/crop
                                       // forward since only the sliders below have direct controls
@@ -63,4 +71,9 @@ private:
     QPushButton *m_cropApplyButton;
     QPushButton *m_cropCancelButton;
     QCheckBox *m_keepAspectRatioCheckBox;
+
+    QPushButton *m_copySettingsButton;
+    QPushButton *m_pasteSettingsButton;
+    bool m_pasteAvailable = false; // something has been copied
+    bool m_cropModeActive = false;
 };

@@ -29,7 +29,9 @@ AdjustmentsPanel::AdjustmentsPanel(QWidget *parent)
       m_cropButton(new QPushButton(tr("Crop"), this)),
       m_cropApplyButton(new QPushButton(tr("Apply"), this)),
       m_cropCancelButton(new QPushButton(tr("Cancel"), this)),
-      m_keepAspectRatioCheckBox(new QCheckBox(tr("Keep aspect ratio"), this))
+      m_keepAspectRatioCheckBox(new QCheckBox(tr("Keep aspect ratio"), this)),
+      m_copySettingsButton(new QPushButton(tr("Copy Settings"), this)),
+      m_pasteSettingsButton(new QPushButton(tr("Paste Settings"), this))
 {
     m_brightnessSlider->setRange(-100, 100);
     m_contrastSlider->setRange(0, 300);
@@ -58,6 +60,11 @@ AdjustmentsPanel::AdjustmentsPanel(QWidget *parent)
     cropLayout->addWidget(m_cropApplyButton);
     cropLayout->addWidget(m_cropCancelButton);
 
+    m_pasteSettingsButton->setEnabled(false); // nothing copied yet
+    auto *settingsLayout = new QHBoxLayout;
+    settingsLayout->addWidget(m_copySettingsButton);
+    settingsLayout->addWidget(m_pasteSettingsButton);
+
     auto *mainLayout = new QVBoxLayout(this);
     mainLayout->addLayout(sliderLayout);
     mainLayout->addSpacing(12);
@@ -67,6 +74,9 @@ AdjustmentsPanel::AdjustmentsPanel(QWidget *parent)
     mainLayout->addWidget(new QLabel(tr("Crop"), this));
     mainLayout->addLayout(cropLayout);
     mainLayout->addWidget(m_keepAspectRatioCheckBox);
+    mainLayout->addSpacing(12);
+    mainLayout->addWidget(new QLabel(tr("Settings"), this));
+    mainLayout->addLayout(settingsLayout);
     mainLayout->addStretch(1);
 
     setParameters(EditParameters{});
@@ -106,6 +116,9 @@ AdjustmentsPanel::AdjustmentsPanel(QWidget *parent)
     connect(m_cropCancelButton, &QPushButton::clicked, this, &AdjustmentsPanel::cropCancelRequested);
 
     connect(m_keepAspectRatioCheckBox, &QCheckBox::toggled, this, &AdjustmentsPanel::keepAspectRatioToggled);
+
+    connect(m_copySettingsButton, &QPushButton::clicked, this, &AdjustmentsPanel::copySettingsRequested);
+    connect(m_pasteSettingsButton, &QPushButton::clicked, this, &AdjustmentsPanel::pasteSettingsRequested);
 }
 
 void AdjustmentsPanel::setParameters(const EditParameters &params)
@@ -138,16 +151,31 @@ void AdjustmentsPanel::setCropModeActive(bool active)
     m_cropCancelButton->setVisible(active);
     m_keepAspectRatioCheckBox->setVisible(active);
 
-    // Adjusting any slider or rotating mid-crop would re-render the
-    // background from under the overlay the user is actively positioning
-    // (or, for rotate, change the image's dimensions entirely), so lock
-    // those out until they're done.
+    // Adjusting any slider, rotating, or pasting mid-crop would re-render
+    // the background from under the overlay the user is actively
+    // positioning (or, for rotate, change the image's dimensions entirely),
+    // so lock those out until they're done. Copying is read-only - it
+    // doesn't touch the photo or the overlay - so it stays available.
     m_brightnessSlider->setEnabled(!active);
     m_contrastSlider->setEnabled(!active);
     m_temperatureSlider->setEnabled(!active);
     m_tintSlider->setEnabled(!active);
     m_rotateLeftButton->setEnabled(!active);
     m_rotateRightButton->setEnabled(!active);
+
+    m_cropModeActive = active;
+    updatePasteButtonEnabled();
+}
+
+void AdjustmentsPanel::setPasteSettingsEnabled(bool enabled)
+{
+    m_pasteAvailable = enabled;
+    updatePasteButtonEnabled();
+}
+
+void AdjustmentsPanel::updatePasteButtonEnabled()
+{
+    m_pasteSettingsButton->setEnabled(m_pasteAvailable && !m_cropModeActive);
 }
 
 EditParameters AdjustmentsPanel::currentParameters() const
