@@ -12,6 +12,7 @@ class ImageViewer;
 class AdjustmentsPanel;
 class Photo;
 class QPushButton;
+class QAction;
 
 // Top-level window. Owns the library/model layer and the three UI panels,
 // and wires them together: thumbnail selection loads a photo, slider moves
@@ -42,6 +43,7 @@ private slots:
     void onExportRequested();
     void onCopySettingsRequested();
     void onPasteSettingsRequested();
+    void onFavoriteToggled(bool favorite);
 
 private:
     void loadPhoto(int row);
@@ -49,6 +51,8 @@ private:
     void rotate(bool clockwise);
     void cancelCropIfActive();
     void updateExportEnabled();
+    void updateFavoriteEnabled();
+    void syncFavoriteUi(bool favorite);
 
     PhotoLibrary *m_library;
     ThumbnailModel *m_thumbnailModel;
@@ -56,6 +60,7 @@ private:
     ImageViewer *m_imageViewer;
     AdjustmentsPanel *m_adjustmentsPanel;
     QPushButton *m_exportButton;
+    QAction *m_favoriteAction;
 
     Photo *m_currentPhoto = nullptr;
     int m_currentRow = -1; // index of m_currentPhoto in the library, for invalidating its thumbnail

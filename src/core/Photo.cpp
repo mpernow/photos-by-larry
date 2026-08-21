@@ -33,6 +33,14 @@ void Photo::setEditParameters(const EditParameters &params)
     m_dirty = true;
 }
 
+void Photo::setFavorite(bool favorite)
+{
+    if (favorite == m_isFavorite)
+        return;
+    m_isFavorite = favorite;
+    m_dirty = true;
+}
+
 void Photo::loadSidecarIfPresent()
 {
     QFile file(sidecarPath());
@@ -40,8 +48,11 @@ void Photo::loadSidecarIfPresent()
         return;
 
     const QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
-    if (doc.isObject())
-        m_params = EditParameters::fromJson(doc.object());
+    if (doc.isObject()) {
+        const QJsonObject object = doc.object();
+        m_params = EditParameters::fromJson(object);
+        m_isFavorite = object.value("favorite").toBool(false);
+    }
 }
 
 void Photo::saveSidecar()
@@ -53,6 +64,8 @@ void Photo::saveSidecar()
     if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate))
         return;
 
-    file.write(QJsonDocument(m_params.toJson()).toJson());
+    QJsonObject object = m_params.toJson();
+    object["favorite"] = m_isFavorite;
+    file.write(QJsonDocument(object).toJson());
     m_dirty = false;
 }

@@ -32,7 +32,11 @@ The code is split into two layers under `src/`:
 
 ### Core types
 
-- `Photo` — one image file plus its current `EditParameters`.
+- `Photo` — one image file plus its current `EditParameters` and favorite
+  status. Favorite is a field on `Photo`, not `EditParameters` - it's
+  curation metadata that never feeds into `ImageProcessor`. It's persisted
+  as a flat, sibling `"favorite"` key in the same sidecar JSON (not nested
+  under the edit fields), so old sidecars without that key still parse fine.
 - `PhotoLibrary` — the set of photos found in one opened directory.
 - `EditParameters` — the adjustable values for a photo: brightness, contrast,
   white balance (`temperature`/`tint` — simple per-channel gain shifts, not
@@ -67,9 +71,17 @@ the `Photo`/`PhotoLibrary` API wouldn't need to change to do it.
   `QAbstractListModel` over `PhotoLibrary` that decodes each thumbnail
   lazily on a background thread (`QtConcurrent`) and caches it. Thumbnails
   are rendered through `ImageProcessor` with the photo's current
-  `EditParameters`, so they reflect rotate/crop/brightness/etc. edits too.
+  `EditParameters`, so they reflect rotate/crop/brightness/etc. edits too. A
+  favorited photo also gets a star badge painted directly onto its thumbnail
+  during that same background decode. Also has a "Favorites only" checkbox
+  that filters the grid - see "View row vs. library index" below.
 - `ImageViewer` (center) — `QGraphicsView`-based pan/zoom display of the
-  current rendered image; also hosts `CropOverlayItem` while cropping.
+  current rendered image; also hosts `CropOverlayItem` while cropping, and a
+  favorite-toggle star button as a real child `QWidget` of the viewport
+  (not a scene item) anchored to the bottom-right corner, so pan/zoom never
+  moves it. Hidden while cropping - a fresh crop rect commonly extends to
+  that same corner, which would otherwise put the crop handle and the
+  button on top of each other.
 - `AdjustmentsPanel` (right dock) — brightness/contrast/temperature/tint
   sliders, rotate buttons, the crop tool, and Copy/Paste Settings for the
   current photo.
@@ -108,9 +120,19 @@ meaningful "in progress" state:
   (a crop drawn for one photo's content/aspect ratio has no reason to mean
   anything on another). Paste is disabled until something's copied and
   while mid-crop; Copy is read-only and stays available even then.
+- **Favoriting** (discrete): two controls - the checkable "Photo > Toggle
+  Favorite" menu action (shortcut `F`) and `ImageViewer`'s corner button -
+  both feed `MainWindow::onFavoriteToggled`, the single place that persists
+  the change and syncs the *other* control to match (via `QSignalBlocker`,
+  so the sync doesn't loop back as another toggle). Enabled whenever a photo
+  is loaded, including mid-crop - unlike Export/Paste, it never touches the
+  rendered image, so there's no reason to lock it out.
 
 Committing any edit invalidates that photo's cached thumbnail
-(`ThumbnailModel::invalidateThumbnail`).
+(`ThumbnailModel::invalidateThumbnail`) - except a favorite toggle, which
+goes through `notifyFavoriteChanged` instead, since under the favorites-only
+filter that photo may need to appear/disappear from the grid entirely, not
+just have its thumbnail repainted.
 
 The "Export..." button lives in the status bar's permanent-widget area
 (bottom-right corner) rather than a menu — that placement was a specific
@@ -121,6 +143,30 @@ the photo's last *committed* `EditParameters` and writes the result via
 exporting doesn't affect how revisable the edit stays. Acts on the single
 active photo only — the thumbnail grid is single-selection, so there's no
 multi-photo selection to drive a batch export from yet.
+
+### View row vs. library index (`ThumbnailModel`)
+
+The favorites-only filter means `ThumbnailModel` has two distinct notions of
+"index": the *view row* (this model's row, 0..N-1 over whatever subset is
+currently visible - tracked in `m_visibleIndices`, view row -> library
+index) and the *library index* (a photo's stable position in `PhotoLibrary`,
+unaffected by filtering). Everything outside this model - `MainWindow`,
+`ThumbnailPanel`'s selection handling - deals exclusively in library
+indices, fetched via `PhotoIndexRole` (defined from the very start of the
+model, unused until this feature needed it) rather than a `QModelIndex`'s
+raw `row()`. That's what keeps `MainWindow` completely unaffected by
+filtering existing at all: `loadPhoto`, `invalidateThumbnail`,
+`m_currentRow`, etc. all still just mean "index into `PhotoLibrary`."
+
+The thumbnail cache is keyed by library index too, so toggling the filter
+(`setFavoritesOnlyFilter`) never forces re-decoding anything - it only
+recomputes which already-cached rows are visible (`rebuildVisibleIndices`).
+Only a genuinely new directory (`onLibraryChanged`) clears the cache
+outright. One known rough edge: toggling the filter still does a full
+`beginResetModel`, which drops the grid's selection highlight even for a
+photo that remains visible under the new filter - fixing that would mean
+diffing old/new `m_visibleIndices` with targeted
+`beginInsertRows`/`beginRemoveRows` instead.
 
 ### Preview vs. full-resolution rendering
 

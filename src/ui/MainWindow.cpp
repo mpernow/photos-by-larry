@@ -18,6 +18,7 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QSignalBlocker>
 #include <QSplitter>
 #include <QStatusBar>
 
@@ -81,6 +82,16 @@ MainWindow::MainWindow(QWidget *parent)
     QAction *openAction = fileMenu->addAction(tr("&Open Directory..."), this, &MainWindow::openDirectory);
     openAction->setShortcut(QKeySequence::Open);
 
+    // A menu action (rather than a dedicated button) for discoverability -
+    // Qt shows the shortcut right in the menu - and it's browsing/curation
+    // metadata rather than a pixel-affecting edit, so it doesn't belong
+    // alongside AdjustmentsPanel's rendering controls.
+    auto *photoMenu = menuBar()->addMenu(tr("&Photo"));
+    m_favoriteAction = photoMenu->addAction(tr("Toggle &Favorite"));
+    m_favoriteAction->setCheckable(true);
+    m_favoriteAction->setShortcut(QKeySequence(Qt::Key_F));
+    m_favoriteAction->setEnabled(false); // no photo loaded yet
+
     // Requested to live as a corner button rather than a menu action - the
     // status bar's permanent-widget area is the idiomatic Qt way to anchor a
     // widget to the window's bottom-right, and stays there across resizes.
@@ -109,6 +120,15 @@ MainWindow::MainWindow(QWidget *parent)
             &MainWindow::onCopySettingsRequested);
     connect(m_adjustmentsPanel, &AdjustmentsPanel::pasteSettingsRequested, this,
             &MainWindow::onPasteSettingsRequested);
+    // Both the menu action and the viewer's corner button control the same
+    // underlying flag; onFavoriteToggled is the single place that persists
+    // it and syncs both controls back to match each other.
+    connect(m_favoriteAction, &QAction::toggled, this, &MainWindow::onFavoriteToggled);
+    connect(m_imageViewer, &ImageViewer::favoriteToggled, this, &MainWindow::onFavoriteToggled);
+    // Purely a browsing/filter setting - ThumbnailPanel tells ThumbnailModel
+    // how to behave directly, no Photo/persistence involved.
+    connect(m_thumbnailPanel, &ThumbnailPanel::favoritesOnlyToggled, m_thumbnailModel,
+            &ThumbnailModel::setFavoritesOnlyFilter);
 }
 
 MainWindow::~MainWindow() = default;
@@ -132,9 +152,11 @@ void MainWindow::openDirectory()
     m_currentPhoto = nullptr;
     m_currentSource.release();
     m_previewSource.release();
-    m_imageViewer->clear();
+    m_imageViewer->clear(); // also resets its favorite button to unchecked/disabled
     m_adjustmentsPanel->setEnabled(false);
     updateExportEnabled();
+    m_favoriteAction->setChecked(false);
+    updateFavoriteEnabled();
 
     m_library->openDirectory(dir);
     statusBar()->showMessage(tr("%1 photo(s) found in %2").arg(m_library->count()).arg(dir), 5000);
@@ -157,9 +179,11 @@ void MainWindow::loadPhoto(int row)
         m_currentRow = -1;
         m_currentSource.release();
         m_previewSource.release();
-        m_imageViewer->clear();
+        m_imageViewer->clear(); // also resets its favorite button to unchecked/disabled
         m_adjustmentsPanel->setEnabled(false);
         updateExportEnabled();
+        m_favoriteAction->setChecked(false);
+        updateFavoriteEnabled();
         return;
     }
 
@@ -171,6 +195,8 @@ void MainWindow::loadPhoto(int row)
     m_adjustmentsPanel->setEnabled(!m_currentSource.empty());
     m_adjustmentsPanel->setParameters(photo->editParameters());
     updateExportEnabled();
+    syncFavoriteUi(photo->isFavorite());
+    updateFavoriteEnabled();
 
     updatePreview(photo->editParameters(), /*fullResolution=*/true);
 }
@@ -351,4 +377,35 @@ void MainWindow::onPasteSettingsRequested()
     m_adjustmentsPanel->setParameters(params);
     updatePreview(params, /*fullResolution=*/true);
     statusBar()->showMessage(tr("Pasted settings onto %1").arg(m_currentPhoto->fileName()), 5000);
+}
+
+void MainWindow::onFavoriteToggled(bool favorite)
+{
+    if (!m_currentPhoto)
+        return;
+
+    m_currentPhoto->setFavorite(favorite);
+    m_currentPhoto->saveSidecar();
+    // Not invalidateThumbnail(): under the favorites-only filter, this photo
+    // may need to appear or disappear from the grid entirely, not just have
+    // its thumbnail repainted.
+    m_thumbnailModel->notifyFavoriteChanged(m_currentRow);
+    syncFavoriteUi(favorite);
+}
+
+void MainWindow::syncFavoriteUi(bool favorite)
+{
+    m_imageViewer->setFavoriteChecked(favorite); // blocks its own signal internally while syncing
+    const QSignalBlocker blockAction(m_favoriteAction);
+    m_favoriteAction->setChecked(favorite);
+}
+
+void MainWindow::updateFavoriteEnabled()
+{
+    // Unlike Export/Paste, favoriting doesn't touch the rendered image at
+    // all, so there's no reason to lock it out mid-crop - only "is a photo
+    // even loaded" matters.
+    const bool enabled = m_currentPhoto != nullptr;
+    m_imageViewer->setFavoriteButtonEnabled(enabled);
+    m_favoriteAction->setEnabled(enabled);
 }
