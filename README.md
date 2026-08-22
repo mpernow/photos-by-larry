@@ -2,6 +2,56 @@
 
 A desktop photo browser/editor built with Qt (UI) and OpenCV (image processing).
 
+## Editing
+
+All edits are non-destructive - see "Non-destructive editing" under
+Architecture below for how that's implemented. The available adjustments,
+grouped by what they affect:
+
+**Geometry**
+
+- **Rotate** - turns the photo 90° at a time (left/right buttons; no
+  arbitrary-angle straightening yet).
+- **Crop** - draw a rectangular region to keep; drag the overlay's body to
+  move it or its edges/corners to resize. Optionally locked to the photo's
+  current aspect ratio via "Keep aspect ratio".
+
+**Light** (brightness/contrast plus finer tonal-range control)
+
+- **Brightness** - a flat shift applied evenly across the whole image, up
+  or down.
+- **Contrast** - stretches or compresses the difference between light and
+  dark areas evenly across the whole image.
+- **Highlights** - brightens or dims just the already-bright parts of the
+  image; the effect fades out toward the shadows.
+- **Shadows** - brightens or dims just the already-dark parts of the image;
+  the effect fades out toward the highlights.
+- **Whites** - moves the point at which pixels clip to pure white, making
+  the brightest areas brighter (or pulling them back) without moving the
+  rest of the tonal range as much as Brightness would.
+- **Blacks** - moves the point at which pixels clip to pure black, the same
+  way Whites does for the top end of the range.
+
+**Color**
+
+- **Temperature** - shifts the image warmer (more red/orange) or cooler
+  (more blue), the way a white-balance control corrects for a photo shot
+  under warm or cool lighting.
+- **Tint** - shifts the image toward magenta or green, the other axis of
+  white balance alongside Temperature.
+- **Vibrance** - boosts color intensity, but leans harder on already-muted
+  colors and eases off on colors that are already vivid - a gentler,
+  less clipping-prone version of Saturation.
+- **Saturation** - boosts (or reduces) color intensity evenly across the
+  whole image, regardless of how saturated each color already is.
+
+Two more controls round out the editing workflow without being "edits" on
+their own: **Copy/Paste Settings**, which copies one photo's full set of
+adjustments above (except its crop, which is specific to that photo's
+content) onto another; and **Favorite**, a plain yes/no curation flag
+that's independent of all of the above - it's for marking photos worth
+revisiting, not part of the rendered image.
+
 ## Building
 
 Dependencies: CMake 3.16+, a C++17 compiler, Qt6 (Widgets + Concurrent), OpenCV 4.
