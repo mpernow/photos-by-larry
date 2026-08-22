@@ -102,6 +102,12 @@ the `Photo`/`PhotoLibrary` API wouldn't need to change to do it.
 - `AdjustmentsPanel` (right dock) — brightness/contrast/highlights/shadows/
   whites/blacks/temperature/tint/vibrance/saturation sliders, rotate
   buttons, the crop tool, and Copy/Paste Settings for the current photo.
+  The sliders and rotate/crop controls are grouped into collapsible
+  Geometry (rotate/crop) / Light (brightness through blacks) / Color
+  (temperature through saturation) sections (`CollapsibleSection`, a small
+  reusable toggle-button-plus-content-widget) so the panel doesn't show
+  every control at once. Expanded by default; collapse state isn't
+  persisted. Copy/Paste Settings stays outside any section.
 - `CropOverlayItem` — a `QGraphicsItem` drawn on top of the image while
   cropping: darkens everything outside the selection and lets the user drag
   its body to move it or its edges/corners to resize it. `ImageViewer` only

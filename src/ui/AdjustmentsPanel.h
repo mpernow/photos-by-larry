@@ -11,7 +11,10 @@ class QCheckBox;
 
 // Right-hand dock panel with the editing controls for the currently selected
 // photo: brightness/contrast/highlights/shadows/whites/blacks/temperature/
-// tint/vibrance/saturation sliders, rotate buttons, and the crop tool.
+// tint/vibrance/saturation sliders, rotate buttons, and the crop tool -
+// grouped into collapsible Geometry (rotate/crop) / Light (brightness
+// through blacks) / Color (temperature through saturation) sections
+// (CollapsibleSection) so the panel doesn't show every control at once.
 //
 // The sliders follow a live-preview/commit split: previewParametersChanged
 // fires on every slider move (fast, not persisted), parametersCommitted fires

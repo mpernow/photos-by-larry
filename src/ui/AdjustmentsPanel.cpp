@@ -9,6 +9,8 @@
 #include <QSlider>
 #include <QVBoxLayout>
 
+#include "CollapsibleSection.h"
+
 namespace
 {
 constexpr int kContrastScale = 100; // slider value 100 <=> contrast 1.0
@@ -56,27 +58,29 @@ AdjustmentsPanel::AdjustmentsPanel(QWidget *parent)
     m_vibranceSlider->setRange(-100, 100);
     m_saturationSlider->setRange(-100, 100);
 
-    auto *sliderLayout = new QFormLayout;
-    sliderLayout->addRow(tr("Brightness"), m_brightnessSlider);
-    sliderLayout->addRow(QString(), m_brightnessValueLabel);
-    sliderLayout->addRow(tr("Contrast"), m_contrastSlider);
-    sliderLayout->addRow(QString(), m_contrastValueLabel);
-    sliderLayout->addRow(tr("Highlights"), m_highlightsSlider);
-    sliderLayout->addRow(QString(), m_highlightsValueLabel);
-    sliderLayout->addRow(tr("Shadows"), m_shadowsSlider);
-    sliderLayout->addRow(QString(), m_shadowsValueLabel);
-    sliderLayout->addRow(tr("Whites"), m_whitesSlider);
-    sliderLayout->addRow(QString(), m_whitesValueLabel);
-    sliderLayout->addRow(tr("Blacks"), m_blacksSlider);
-    sliderLayout->addRow(QString(), m_blacksValueLabel);
-    sliderLayout->addRow(tr("Temperature"), m_temperatureSlider);
-    sliderLayout->addRow(QString(), m_temperatureValueLabel);
-    sliderLayout->addRow(tr("Tint"), m_tintSlider);
-    sliderLayout->addRow(QString(), m_tintValueLabel);
-    sliderLayout->addRow(tr("Vibrance"), m_vibranceSlider);
-    sliderLayout->addRow(QString(), m_vibranceValueLabel);
-    sliderLayout->addRow(tr("Saturation"), m_saturationSlider);
-    sliderLayout->addRow(QString(), m_saturationValueLabel);
+    auto *lightLayout = new QFormLayout;
+    lightLayout->addRow(tr("Brightness"), m_brightnessSlider);
+    lightLayout->addRow(QString(), m_brightnessValueLabel);
+    lightLayout->addRow(tr("Contrast"), m_contrastSlider);
+    lightLayout->addRow(QString(), m_contrastValueLabel);
+    lightLayout->addRow(tr("Highlights"), m_highlightsSlider);
+    lightLayout->addRow(QString(), m_highlightsValueLabel);
+    lightLayout->addRow(tr("Shadows"), m_shadowsSlider);
+    lightLayout->addRow(QString(), m_shadowsValueLabel);
+    lightLayout->addRow(tr("Whites"), m_whitesSlider);
+    lightLayout->addRow(QString(), m_whitesValueLabel);
+    lightLayout->addRow(tr("Blacks"), m_blacksSlider);
+    lightLayout->addRow(QString(), m_blacksValueLabel);
+
+    auto *colorLayout = new QFormLayout;
+    colorLayout->addRow(tr("Temperature"), m_temperatureSlider);
+    colorLayout->addRow(QString(), m_temperatureValueLabel);
+    colorLayout->addRow(tr("Tint"), m_tintSlider);
+    colorLayout->addRow(QString(), m_tintValueLabel);
+    colorLayout->addRow(tr("Vibrance"), m_vibranceSlider);
+    colorLayout->addRow(QString(), m_vibranceValueLabel);
+    colorLayout->addRow(tr("Saturation"), m_saturationSlider);
+    colorLayout->addRow(QString(), m_saturationValueLabel);
 
     auto *rotateLayout = new QHBoxLayout;
     rotateLayout->addWidget(m_rotateLeftButton);
@@ -90,20 +94,30 @@ AdjustmentsPanel::AdjustmentsPanel(QWidget *parent)
     cropLayout->addWidget(m_cropApplyButton);
     cropLayout->addWidget(m_cropCancelButton);
 
+    auto *geometryLayout = new QVBoxLayout;
+    geometryLayout->addWidget(new QLabel(tr("Rotate"), this));
+    geometryLayout->addLayout(rotateLayout);
+    geometryLayout->addSpacing(12);
+    geometryLayout->addWidget(new QLabel(tr("Crop"), this));
+    geometryLayout->addLayout(cropLayout);
+    geometryLayout->addWidget(m_keepAspectRatioCheckBox);
+
+    auto *geometrySection = new CollapsibleSection(tr("Geometry"), this);
+    geometrySection->setContentLayout(geometryLayout);
+    auto *lightSection = new CollapsibleSection(tr("Light"), this);
+    lightSection->setContentLayout(lightLayout);
+    auto *colorSection = new CollapsibleSection(tr("Color"), this);
+    colorSection->setContentLayout(colorLayout);
+
     m_pasteSettingsButton->setEnabled(false); // nothing copied yet
     auto *settingsLayout = new QHBoxLayout;
     settingsLayout->addWidget(m_copySettingsButton);
     settingsLayout->addWidget(m_pasteSettingsButton);
 
     auto *mainLayout = new QVBoxLayout(this);
-    mainLayout->addLayout(sliderLayout);
-    mainLayout->addSpacing(12);
-    mainLayout->addWidget(new QLabel(tr("Rotate"), this));
-    mainLayout->addLayout(rotateLayout);
-    mainLayout->addSpacing(12);
-    mainLayout->addWidget(new QLabel(tr("Crop"), this));
-    mainLayout->addLayout(cropLayout);
-    mainLayout->addWidget(m_keepAspectRatioCheckBox);
+    mainLayout->addWidget(geometrySection);
+    mainLayout->addWidget(lightSection);
+    mainLayout->addWidget(colorSection);
     mainLayout->addSpacing(12);
     mainLayout->addWidget(new QLabel(tr("Settings"), this));
     mainLayout->addLayout(settingsLayout);

@@ -241,7 +241,9 @@ do it.
   click-targets on top of each other.
 - `AdjustmentsPanel` (right dock) — brightness/contrast/highlights/shadows/
   whites/blacks/temperature/tint/vibrance/saturation sliders, rotate
-  buttons, and the crop tool for the current photo.
+  buttons, and the crop tool for the current photo, grouped into
+  collapsible Geometry/Light/Color sections (`CollapsibleSection`) so the
+  panel doesn't show every control at once.
 - `CropOverlayItem` — a `QGraphicsItem` drawn on top of the image in
   `ImageViewer` while cropping: darkens everything outside the selection and
   lets the user drag its body to move it or its edges/corners to resize it.

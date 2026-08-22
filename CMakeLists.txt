@@ -33,6 +33,7 @@ set(APP_SOURCES
     src/ui/ThumbnailPanel.cpp
     src/ui/ImageViewer.cpp
     src/ui/AdjustmentsPanel.cpp
+    src/ui/CollapsibleSection.cpp
     src/ui/CropOverlayItem.cpp
 )
 
@@ -48,6 +49,7 @@ set(APP_HEADERS
     src/ui/ThumbnailPanel.h
     src/ui/ImageViewer.h
     src/ui/AdjustmentsPanel.h
+    src/ui/CollapsibleSection.h
     src/ui/CropOverlayItem.h
 )
 
