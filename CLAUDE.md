@@ -69,6 +69,12 @@ The code is split into two layers under `src/`:
   luminance-squared falloff), and vibrance's saturation boost is weighted
   toward already-muted colors - so each is a step up from brightness's flat
   additive shift without introducing full masking/regional editing.
+  Internally, `apply` normalizes the source (8-bit or 16-bit) to a shared
+  `[0,1]` float working representation once at the start and only quantizes
+  back to 8-bit once at the very end, rather than each step saturating to
+  8-bit individually - so a higher-bit-depth source (a future RAW decoder)
+  keeps its extra highlight/shadow headroom through every edit, and 8-bit
+  sources no longer accumulate rounding error across steps either.
 - `ImageConversion` — `cv::Mat` <-> `QImage` conversions (the seam between
   OpenCV and Qt); every conversion deep-copies.
 

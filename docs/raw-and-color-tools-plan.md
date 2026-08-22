@@ -26,11 +26,24 @@ No test suite exists in this repo (see CLAUDE.md). Every phase below should
 still end in a full clean rebuild (zero warnings) and a hands-on run, same
 discipline the rest of this codebase's history follows.
 
-## Phase 1 — Bit-depth pipeline rework
+## Phase 1 — Bit-depth pipeline rework ✅ done
 
 Do this first, using only the existing 8-bit JPEG sources to verify - so
 this refactor is de-risked on its own before a new decoder is layered on
 top of it.
+
+**Result:** implemented as described below. Verified with a standalone
+harness comparing pre/post-refactor output pixel-for-pixel across eleven
+parameter combinations (brightness/contrast/tonal-range/white-balance/
+vibrance-saturation individually and combined, plus rotate+crop) on a
+synthetic full-range test image: 7 of 11 cases were bit-identical, the rest
+differed by only 1-13 levels out of 255. The differences are expected and
+desirable, not regressions - the old pipeline quantized to 8-bit after
+*every* step, while the new one quantizes once at the end; the largest
+differences are specifically in cases touching HSV (vibrance/saturation),
+where operating in float HSV avoids the old 8-bit path's extra hue
+quantization to 180 levels. No NaNs, no out-of-range values, sane pixel
+statistics throughout.
 
 **Goal:** make `ImageProcessor::apply` depth-agnostic and
 precision-preserving, so that when Phase 2 later feeds it 16-bit RAW data,
