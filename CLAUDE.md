@@ -47,19 +47,28 @@ The code is split into two layers under `src/`:
   under the edit fields), so old sidecars without that key still parse fine.
 - `PhotoLibrary` — the set of photos found in one opened directory.
 - `EditParameters` — the adjustable values for a photo: brightness, contrast,
-  white balance (`temperature`/`tint` — simple per-channel gain shifts, not
-  true Kelvin-based color science), a discrete rotation
-  (`rotationQuarterTurns`, 0-3), and a crop rect normalized to `[0,1]`
-  _relative to the rotated image_ — resolution independent, so the same
-  value crops the full-resolution photo and any downscaled preview
+  tonal range (`highlights`/`shadows`/`whites`/`blacks`, layered on top of
+  brightness/contrast rather than replacing them), white balance
+  (`temperature`/`tint` — simple per-channel gain shifts, not true
+  Kelvin-based color science), presence (`vibrance`/`saturation`), a discrete
+  rotation (`rotationQuarterTurns`, 0-3), and a crop rect normalized to
+  `[0,1]` _relative to the rotated image_ — resolution independent, so the
+  same value crops the full-resolution photo and any downscaled preview
   identically. Serializes to/from JSON. Rotating a photo that already has a
   crop transforms the crop rect to match
   (`rotatedClockwise`/`rotatedCounterClockwise`) rather than resetting it, so
   the selected region keeps referring to the same content.
 - `ImageProcessor::apply(source, params)` — pure function: original pixels +
   parameters → rendered pixels, applying rotate, then crop, then white
-  balance, then brightness/contrast, in that order. Stateless, so it can run
-  on the UI thread for live preview or off-thread for export/thumbnailing.
+  balance, then tonal range (highlights/shadows/whites/blacks), then
+  brightness/contrast, then vibrance/saturation, in that order. Stateless, so
+  it can run on the UI thread for live preview or off-thread for
+  export/thumbnailing. Highlights/shadows and vibrance/saturation are
+  weighted rather than uniform adjustments - highlights/shadows shift
+  additively based on how bright/dark a pixel already is (via a
+  luminance-squared falloff), and vibrance's saturation boost is weighted
+  toward already-muted colors - so each is a step up from brightness's flat
+  additive shift without introducing full masking/regional editing.
 - `ImageConversion` — `cv::Mat` <-> `QImage` conversions (the seam between
   OpenCV and Qt); every conversion deep-copies.
 
@@ -90,9 +99,9 @@ the `Photo`/`PhotoLibrary` API wouldn't need to change to do it.
   moves it. Hidden while cropping - a fresh crop rect commonly extends to
   that same corner, which would otherwise put the crop handle and the
   button on top of each other.
-- `AdjustmentsPanel` (right dock) — brightness/contrast/temperature/tint
-  sliders, rotate buttons, the crop tool, and Copy/Paste Settings for the
-  current photo.
+- `AdjustmentsPanel` (right dock) — brightness/contrast/highlights/shadows/
+  whites/blacks/temperature/tint/vibrance/saturation sliders, rotate
+  buttons, the crop tool, and Copy/Paste Settings for the current photo.
 - `CropOverlayItem` — a `QGraphicsItem` drawn on top of the image while
   cropping: darkens everything outside the selection and lets the user drag
   its body to move it or its edges/corners to resize it. `ImageViewer` only
@@ -103,7 +112,8 @@ the `Photo`/`PhotoLibrary` API wouldn't need to change to do it.
 Two editing patterns coexist, depending on whether an operation has a
 meaningful "in progress" state:
 
-- **Brightness/contrast/temperature/tint** (continuous, dragged): slider move
+- **Brightness/contrast/highlights/shadows/whites/blacks/temperature/tint/
+  vibrance/saturation** (continuous, dragged): slider move
   -> `AdjustmentsPanel::previewParametersChanged` ->
   `MainWindow::updatePreview` -> `ImageProcessor::apply` ->
   `ImageViewer::setImage`. Slider release additionally fires
@@ -209,11 +219,3 @@ photo doesn't reset the user's pan/zoom.
   this to batch export and batch-apply-copied-settings across several
   selected photos is the main workflow gap versus editing a whole shoot at
   once.
-- **Highlights/shadows/whites/blacks** — splitting the current single
-  brightness/contrast pair into Lightroom-style tonal range controls, for
-  more targeted tone adjustments than one global brightness and one global
-  contrast slider allow.
-- **Vibrance/saturation** — additional `EditParameters` fields alongside the
-  existing white balance controls, following the same extension path as
-  temperature/tint: a field on `EditParameters` (+ JSON read/write), a case
-  in `ImageProcessor::apply`, and a control in `AdjustmentsPanel`.

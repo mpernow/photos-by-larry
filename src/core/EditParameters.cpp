@@ -42,7 +42,10 @@ EditParameters EditParameters::rotatedCounterClockwise() const
 bool EditParameters::operator==(const EditParameters &other) const
 {
     return fuzzyEquals(brightness, other.brightness) && fuzzyEquals(contrast, other.contrast) &&
+           fuzzyEquals(highlights, other.highlights) && fuzzyEquals(shadows, other.shadows) &&
+           fuzzyEquals(whites, other.whites) && fuzzyEquals(blacks, other.blacks) &&
            fuzzyEquals(temperature, other.temperature) && fuzzyEquals(tint, other.tint) &&
+           fuzzyEquals(vibrance, other.vibrance) && fuzzyEquals(saturation, other.saturation) &&
            rotationQuarterTurns == other.rotationQuarterTurns &&
            fuzzyEquals(cropRect.x(), other.cropRect.x()) && fuzzyEquals(cropRect.y(), other.cropRect.y()) &&
            fuzzyEquals(cropRect.width(), other.cropRect.width()) &&
@@ -54,8 +57,14 @@ QJsonObject EditParameters::toJson() const
     QJsonObject object;
     object["brightness"] = brightness;
     object["contrast"] = contrast;
+    object["highlights"] = highlights;
+    object["shadows"] = shadows;
+    object["whites"] = whites;
+    object["blacks"] = blacks;
     object["temperature"] = temperature;
     object["tint"] = tint;
+    object["vibrance"] = vibrance;
+    object["saturation"] = saturation;
     object["rotationQuarterTurns"] = rotationQuarterTurns;
     object["cropX"] = cropRect.x();
     object["cropY"] = cropRect.y();
@@ -69,8 +78,14 @@ EditParameters EditParameters::fromJson(const QJsonObject &object)
     EditParameters params;
     params.brightness = object.value("brightness").toDouble(params.brightness);
     params.contrast = object.value("contrast").toDouble(params.contrast);
+    params.highlights = object.value("highlights").toDouble(params.highlights);
+    params.shadows = object.value("shadows").toDouble(params.shadows);
+    params.whites = object.value("whites").toDouble(params.whites);
+    params.blacks = object.value("blacks").toDouble(params.blacks);
     params.temperature = object.value("temperature").toDouble(params.temperature);
     params.tint = object.value("tint").toDouble(params.tint);
+    params.vibrance = object.value("vibrance").toDouble(params.vibrance);
+    params.saturation = object.value("saturation").toDouble(params.saturation);
     params.rotationQuarterTurns = object.value("rotationQuarterTurns").toInt(params.rotationQuarterTurns);
     params.cropRect = QRectF(object.value("cropX").toDouble(params.cropRect.x()),
                               object.value("cropY").toDouble(params.cropRect.y()),

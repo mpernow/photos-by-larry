@@ -10,8 +10,8 @@ class QPushButton;
 class QCheckBox;
 
 // Right-hand dock panel with the editing controls for the currently selected
-// photo: brightness/contrast/temperature/tint sliders, rotate buttons, and
-// the crop tool.
+// photo: brightness/contrast/highlights/shadows/whites/blacks/temperature/
+// tint/vibrance/saturation sliders, rotate buttons, and the crop tool.
 //
 // The sliders follow a live-preview/commit split: previewParametersChanged
 // fires on every slider move (fast, not persisted), parametersCommitted fires
@@ -58,12 +58,24 @@ private:
                                       // forward since only the sliders below have direct controls
     QSlider *m_brightnessSlider;
     QSlider *m_contrastSlider;
+    QSlider *m_highlightsSlider;
+    QSlider *m_shadowsSlider;
+    QSlider *m_whitesSlider;
+    QSlider *m_blacksSlider;
     QSlider *m_temperatureSlider;
     QSlider *m_tintSlider;
+    QSlider *m_vibranceSlider;
+    QSlider *m_saturationSlider;
     QLabel *m_brightnessValueLabel;
     QLabel *m_contrastValueLabel;
+    QLabel *m_highlightsValueLabel;
+    QLabel *m_shadowsValueLabel;
+    QLabel *m_whitesValueLabel;
+    QLabel *m_blacksValueLabel;
     QLabel *m_temperatureValueLabel;
     QLabel *m_tintValueLabel;
+    QLabel *m_vibranceValueLabel;
+    QLabel *m_saturationValueLabel;
 
     QPushButton *m_rotateLeftButton;
     QPushButton *m_rotateRightButton;
