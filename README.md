@@ -26,11 +26,13 @@ grouped by what they affect:
   image; the effect fades out toward the shadows.
 - **Shadows** - brightens or dims just the already-dark parts of the image;
   the effect fades out toward the highlights.
-- **Whites** - moves the point at which pixels clip to pure white, making
-  the brightest areas brighter (or pulling them back) without moving the
-  rest of the tonal range as much as Brightness would.
+- **Whites** - moves the point at which pixels clip to pure white, without
+  moving the rest of the tonal range as much as Brightness would. Positive
+  pushes toward more clipping (brighter, blown-out highlights); negative
+  pulls back from it (recovers highlight detail).
 - **Blacks** - moves the point at which pixels clip to pure black, the same
-  way Whites does for the top end of the range.
+  way Whites does for the bottom end of the range. Positive crushes shadows
+  darker; negative lifts them (a faded, lower-contrast look).
 
 **Color**
 
@@ -166,12 +168,31 @@ from reading Qt/CMake's own documentation for cross-platform bundle
 support, but treat the macOS path as unverified until someone actually
 builds it there.
 
+### Testing
+
+`src/core/` (the UI-independent half - see Architecture below) has a
+GoogleTest suite under `tests/`, run via the normal build:
+
+```sh
+cmake -B build              # BUILD_TESTS defaults ON
+cmake --build build -j
+ctest --test-dir build      # or: ./build/tests/PhotosByLarryTests
+```
+
+GoogleTest isn't reliably available as a system package, so it's fetched
+via CMake's `FetchContent` the first time you configure (needs network;
+cached under `build/_deps/` afterward). Pass `-DBUILD_TESTS=OFF` to `cmake`
+for a plain app-only build with no test target and no network dependency.
+
 ## Architecture
 
 The code is split into two layers under `src/`:
 
 - **`src/core/`** — UI-independent model and processing logic. Depends on
-  Qt Core (for `QString`/JSON) and OpenCV, but nothing from Qt Widgets.
+  Qt Core (for `QString`/JSON) and Qt Gui (for `QImage`, in
+  `ImageConversion`) plus OpenCV, but nothing from Qt Widgets. Built as its
+  own CMake static library, `PhotosByLarryCore`, so `tests/` can link
+  against it directly without pulling in Widgets or the app's `main()`.
 - **`src/ui/`** — Qt Widgets views, wired together by `MainWindow`.
 
 ### Core types

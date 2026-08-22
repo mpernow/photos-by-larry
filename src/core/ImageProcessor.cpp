@@ -76,7 +76,11 @@ cv::Mat applyWhiteBalance(const cv::Mat &source, double temperature, double tint
 // outside [0,1] and get resolved once, at the very end of ImageProcessor::apply.
 //
 // Whites/blacks move the white/black clipping points and linearly rescale
-// everything between back to [0,1] - a classic levels adjustment.
+// everything between back to [0,1] - a classic levels adjustment. Positive
+// pushes toward *more* clipping at that extreme (whites brightens/clips
+// highlights harder, blacks darkens/clips shadows harder), negative pulls
+// back from it (recovers highlights, lifts shadows) - matching every other
+// slider's "positive = more of the named effect" convention.
 // Highlights/shadows are an additive shift weighted by luminance (via a
 // squared falloff, so the effect is concentrated at the tonal extreme it
 // names and fades out toward the opposite end) rather than applying
@@ -90,8 +94,13 @@ cv::Mat applyTonalRange(const cv::Mat &source, double highlights, double shadows
         // version of this formula, just re-expressed in [0,1] units: ±100 ->
         // clip point moves by just under half the full range, past full clip.
         constexpr double kEndpointStrength = 1.2 / 255.0;
+        // Increasing blacks *raises* the black point (narrows the range from
+        // the bottom -> crushes shadows darker). Increasing whites has to
+        // *lower* the white point the same way (narrow the range from the
+        // top -> blows highlights brighter) to match - hence the minus sign
+        // here where blackPoint uses a plus.
         const double blackPoint = std::clamp(blacks * kEndpointStrength, -1.0, 1.0);
-        const double whitePoint = std::clamp(1.0 + whites * kEndpointStrength, 1.0 / 255.0, 2.0);
+        const double whitePoint = std::clamp(1.0 - whites * kEndpointStrength, 1.0 / 255.0, 2.0);
         const double range = std::max(whitePoint - blackPoint, 1.0 / 255.0);
         const double alpha = 1.0 / range;
         const double beta = -blackPoint * alpha;

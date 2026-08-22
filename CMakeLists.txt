@@ -16,17 +16,43 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets Concurrent)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Concurrent)
 find_package(OpenCV REQUIRED COMPONENTS core imgproc imgcodecs)
 
-set(APP_SOURCES
-    src/main.cpp
-
+# src/core/ - UI-independent model and processing logic (Qt Core + OpenCV,
+# no Qt Widgets) - split into its own static library so tests/ can link
+# against just this, without pulling in Widgets or the app's main().
+set(CORE_SOURCES
     src/core/EditParameters.cpp
     src/core/ImageConversion.cpp
     src/core/ImageProcessor.cpp
     src/core/Photo.cpp
     src/core/PhotoLibrary.cpp
+)
+
+set(CORE_HEADERS
+    src/core/EditParameters.h
+    src/core/ImageConversion.h
+    src/core/ImageProcessor.h
+    src/core/Photo.h
+    src/core/PhotoLibrary.h
+)
+
+add_library(PhotosByLarryCore STATIC ${CORE_SOURCES} ${CORE_HEADERS})
+
+target_include_directories(PhotosByLarryCore PUBLIC
+    src
+    ${OpenCV_INCLUDE_DIRS}
+)
+
+target_link_libraries(PhotosByLarryCore PUBLIC
+    Qt6::Core
+    Qt6::Gui # ImageConversion.h uses QImage, which lives in Gui, not Core
+    ${OpenCV_LIBS}
+)
+
+set(APP_SOURCES
+    src/main.cpp
 
     src/ui/MainWindow.cpp
     src/ui/ThumbnailModel.cpp
@@ -38,12 +64,6 @@ set(APP_SOURCES
 )
 
 set(APP_HEADERS
-    src/core/EditParameters.h
-    src/core/ImageConversion.h
-    src/core/ImageProcessor.h
-    src/core/Photo.h
-    src/core/PhotoLibrary.h
-
     src/ui/MainWindow.h
     src/ui/ThumbnailModel.h
     src/ui/ThumbnailPanel.h
@@ -77,7 +97,32 @@ target_include_directories(PhotosByLarry PRIVATE
 )
 
 target_link_libraries(PhotosByLarry PRIVATE
+    PhotosByLarryCore
     Qt6::Widgets
     Qt6::Concurrent
     ${OpenCV_LIBS}
 )
+
+# Tests build against PhotosByLarryCore only (src/core/, no Qt Widgets, no
+# app main()). Off switch for anyone who wants a plain app build with no
+# network dependency - GoogleTest isn't reliably available as a system
+# package, so it's fetched via CMake's FetchContent instead.
+option(BUILD_TESTS "Build the GoogleTest-based test suite" ON)
+
+if(BUILD_TESTS)
+    enable_testing()
+
+    include(FetchContent)
+    if(POLICY CMP0135)
+        cmake_policy(SET CMP0135 NEW) # timestamp extracted files at extraction time, not from the archive
+    endif()
+    FetchContent_Declare(
+        googletest
+        URL https://github.com/google/googletest/archive/refs/tags/v1.17.0.zip
+    )
+    # Don't let GoogleTest's own install() rules tangle with this project's.
+    set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(googletest)
+
+    add_subdirectory(tests)
+endif()

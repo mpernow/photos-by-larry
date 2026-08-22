@@ -22,8 +22,10 @@ before the thing that depends on it (RAW decode), and the three creative
 features are built once against the finished float pipeline rather than
 needing to be redone afterward.
 
-No test suite exists in this repo (see CLAUDE.md). Every phase below should
-still end in a full clean rebuild (zero warnings) and a hands-on run, same
+A GoogleTest suite now exists under `tests/` (added after Phase 1, covering
+`EditParameters`/`ImageProcessor`/`Photo`). Every phase below should extend
+it for whatever it adds, and still end in a full clean rebuild (zero
+warnings), a passing test run, and a hands-on run of the app - same
 discipline the rest of this codebase's history follows.
 
 ## Phase 1 — Bit-depth pipeline rework ✅ done
@@ -44,6 +46,15 @@ differences are specifically in cases touching HSV (vibrance/saturation),
 where operating in float HSV avoids the old 8-bit path's extra hue
 quantization to 180 levels. No NaNs, no out-of-range values, sane pixel
 statistics throughout.
+
+**Addendum:** writing the GoogleTest suite (`tests/ImageProcessorTest.cpp`)
+afterward surfaced a real, pre-existing sign bug in Whites, unrelated to
+this phase's own changes - increasing Whites was pulling highlights back
+(recovering them) instead of pushing them brighter/more-clipped, the
+opposite of both the documented intent and every other slider's
+"positive = more of the named effect" convention, and inconsistent with
+Blacks' own (already-correct) sign. Fixed alongside the tests; see
+`ImageProcessor.cpp`'s `applyTonalRange`.
 
 **Goal:** make `ImageProcessor::apply` depth-agnostic and
 precision-preserving, so that when Phase 2 later feeds it 16-bit RAW data,
@@ -234,5 +245,5 @@ work first.
 - README.md and CLAUDE.md get updated per phase, matching this repo's
   established practice of keeping architecture docs in sync with the code
   in the same commit.
-- Verification stays "clean full rebuild with zero warnings, then a
-  hands-on run" per phase, since there's no automated test suite.
+- Verification per phase: clean full rebuild with zero warnings, the
+  `tests/` suite extended and passing, and a hands-on run of the app.

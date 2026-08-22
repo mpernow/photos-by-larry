@@ -26,16 +26,33 @@ but unverified on real macOS; see the README's macOS section (dependencies
 via Homebrew, `open build/PhotosByLarry.app` to run, what's still needed for
 a distributable - not just locally-runnable - bundle).
 
-There is no test suite and no linter/formatter configured in this repo yet.
-Verify changes by building (it must compile cleanly with no new warnings)
-and, where possible, running the app.
+### Tests
+
+`src/core/` has a GoogleTest suite under `tests/`. GoogleTest isn't reliably
+available as a system package, so it's pulled via CMake's `FetchContent`
+(needs network the first time; cached under `build/_deps/` after that) -
+`-DBUILD_TESTS=OFF` skips this entirely for a plain app-only build with no
+network dependency.
+
+```sh
+cmake -B build              # BUILD_TESTS defaults ON
+cmake --build build -j
+ctest --test-dir build      # or: ./build/tests/PhotosByLarryTests
+```
+
+There's no linter/formatter configured in this repo yet. Verify changes by
+building (it must compile cleanly with no new warnings), running the test
+suite, and, where possible, running the app.
 
 ## Architecture
 
 The code is split into two layers under `src/`:
 
 - **`src/core/`** — UI-independent model and processing logic. Depends on Qt
-  Core (for `QString`/JSON) and OpenCV, but nothing from Qt Widgets.
+  Core (for `QString`/JSON) and Qt Gui (for `QImage`, in `ImageConversion`)
+  plus OpenCV, but nothing from Qt Widgets. Built as its own CMake static
+  library, `PhotosByLarryCore`, so `tests/` can link against it directly
+  without pulling in Widgets or the app's `main()`.
 - **`src/ui/`** — Qt Widgets views, wired together by `MainWindow`.
 
 ### Core types
