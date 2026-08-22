@@ -306,6 +306,11 @@ needed to `Photo`, `PhotoLibrary`, or the persistence mechanism. White
 balance (temperature/tint) is a real example of exactly that extension path.
 
 Not yet implemented: arbitrary-angle straightening, undo/redo history, RAW
-support, batch export, multi-select/batch editing, EXIF-based sorting,
-graduated star ratings (favoriting is currently a plain boolean - a
-1-5 rating would need its own UI rather than a checkable toggle).
+support, multi-select with batch operations (batch export, and applying
+copied settings to several photos at once - Export and Paste Settings both
+currently act on the single active photo only, since the thumbnail grid is
+single-selection), additional tone/color adjustments (highlights/shadows/
+whites/blacks as a split-out replacement for the current single brightness/
+contrast pair, plus vibrance/saturation), EXIF-based sorting, graduated star
+ratings (favoriting is currently a plain boolean - a 1-5 rating would need
+its own UI rather than a checkable toggle).

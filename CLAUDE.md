@@ -200,3 +200,20 @@ photo doesn't reset the user's pan/zoom.
   item — which is exactly what triggers this model's background thumbnail
   decode, so _every_ photo in a directory would start decoding the instant
   it's opened instead of just the visible ones.
+
+### Planned, not yet implemented
+
+- **Multi-select + batch operations** — Export and Paste Settings both
+  currently act on the single active photo only, since `ThumbnailPanel`'s
+  grid is single-selection (`QAbstractItemView::SingleSelection`). Extending
+  this to batch export and batch-apply-copied-settings across several
+  selected photos is the main workflow gap versus editing a whole shoot at
+  once.
+- **Highlights/shadows/whites/blacks** — splitting the current single
+  brightness/contrast pair into Lightroom-style tonal range controls, for
+  more targeted tone adjustments than one global brightness and one global
+  contrast slider allow.
+- **Vibrance/saturation** — additional `EditParameters` fields alongside the
+  existing white balance controls, following the same extension path as
+  temperature/tint: a field on `EditParameters` (+ JSON read/write), a case
+  in `ImageProcessor::apply`, and a control in `AdjustmentsPanel`.
