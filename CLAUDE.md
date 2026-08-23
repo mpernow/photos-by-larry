@@ -28,11 +28,13 @@ a distributable - not just locally-runnable - bundle).
 
 `scripts/setup-macos-without-homebrew.sh` builds Qt and OpenCV without
 Homebrew (Qt via aqtinstall, OpenCV from source), for a Mac too old for
-Homebrew's current bottles - same README section has the details. A CI
-version of this was tried first, but GitHub no longer offers a free-tier
-Intel macOS runner (every Intel label is the paid "larger runners" tier,
-which needs a payment method even on public repos) - local build sidesteps
-that.
+Homebrew's current bottles - works on either architecture, since it never
+hardcodes one. `.github/workflows/macos-build.yml` does the CI equivalent,
+targeting Apple Silicon specifically on GitHub's free/standard runner tier
+- every Intel macOS runner label turned out to be the paid "larger
+runners" tier instead, which needs a payment method even on public repos,
+so there's no free CI path for Intel. Same README section has the details
+either way.
 
 ### Tests
 

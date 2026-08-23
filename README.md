@@ -197,11 +197,37 @@ end it prints the exact `cmake -B build -DCMAKE_PREFIX_PATH=...` command to
 run - that (and the usual `cmake --build build -j`) is what you'll use for
 subsequent rebuilds; the script itself only needs to run once.
 
-(A GitHub Actions workflow doing the equivalent in CI was considered, but
-GitHub no longer offers a free/standard-tier Intel macOS runner - every
-Intel macOS label is now GitHub's paid "larger runners" tier, which
-requires a payment method on file even for public repos. Building locally
-sidesteps that entirely, and was the actual goal anyway.)
+Works on both Apple Silicon and Intel Macs - it never hardcodes an
+architecture, so it builds for whatever machine it's run on.
+
+### CI-built macOS binary
+
+`.github/workflows/macos-build.yml` does the CI equivalent of the script
+above: fetches Qt via aqtinstall and builds OpenCV from source, both
+targeting macOS 12, so the *build machine* can be whatever current macOS
+GitHub's hosted runner happens to be while the *output* still runs on
+Monterey. It also runs `macdeployqt` and links OpenCV statically, so the
+artifact it produces is the standalone, distributable bundle described
+earlier in this section - not just a locally-runnable one.
+
+Targets **Apple Silicon (arm64)** specifically, on GitHub's standard
+hosted-runner tier - free and unmetered on public repos. An Intel version
+of this was tried first, but every Intel macOS runner label GitHub offers
+turned out to be its paid "larger runners" tier, which requires a payment
+method on file even for public repos; there's no standard/free Intel
+option. If you're on an Intel Mac, the local script above is the
+free-of-charge path - or adapt the workflow's `runs-on`/architecture
+settings to a paid Intel runner label if you'd rather have CI for it.
+
+Trigger it manually from the repo's Actions tab (or push a `v*` tag), then
+download the `PhotosByLarry-macOS-AppleSilicon` artifact from the run and
+unzip it. The workflow doesn't code-sign or notarize (that needs a paid
+Apple Developer account, out of scope for this), so unlike a locally-built
+`.app`, this one *is* something macOS's Gatekeeper sees as downloaded from
+the internet - first launch will get an "unidentified developer" warning.
+Right-click the app and choose Open (instead of double-clicking) to get a
+dialog with an Open option, or run
+`xattr -d com.apple.quarantine PhotosByLarry.app` from Terminal first.
 
 ### Testing
 
