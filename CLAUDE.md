@@ -26,6 +26,12 @@ but unverified on real macOS; see the README's macOS section (dependencies
 via Homebrew, `open build/PhotosByLarry.app` to run, what's still needed for
 a distributable - not just locally-runnable - bundle).
 
+`.github/workflows/macos-build.yml` builds a distributable macOS binary in
+CI (Intel, targeting macOS 12 Monterey) without Homebrew, since Homebrew's
+own supported-macOS window has moved past what some users are still on -
+same README section has the details (why, how to trigger it, the Gatekeeper
+caveat for a CI-downloaded build).
+
 ### Tests
 
 `src/core/` has a GoogleTest suite under `tests/`. GoogleTest isn't reliably
