@@ -331,7 +331,11 @@ do it.
   whites/blacks/temperature/tint/vibrance/saturation sliders, rotate
   buttons, and the crop tool for the current photo, grouped into
   collapsible Geometry/Light/Color sections (`CollapsibleSection`) so the
-  panel doesn't show every control at once.
+  panel doesn't show every control at once. `MainWindow` puts the panel
+  inside a vertically-scrolling `QScrollArea` rather than handing it to the
+  dock directly, since on a short window all of this can add up to more
+  height than fits and a `QDockWidget` doesn't scroll its content on its
+  own.
 - `CropOverlayItem` — a `QGraphicsItem` drawn on top of the image in
   `ImageViewer` while cropping: darkens everything outside the selection and
   lets the user drag its body to move it or its edges/corners to resize it.

@@ -18,6 +18,7 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QScrollArea>
 #include <QSignalBlocker>
 #include <QSplitter>
 #include <QStatusBar>
@@ -73,8 +74,20 @@ MainWindow::MainWindow(QWidget *parent)
     splitter->setSizes({220, 1000});
     setCentralWidget(splitter);
 
+    // Wrapped in a QScrollArea rather than handed to the dock directly - on
+    // a short window (a smaller/lower-resolution display, or just a
+    // shorter dock than usual) AdjustmentsPanel's collapsible sections plus
+    // rotate/crop/settings controls can add up to more height than fits,
+    // and a QDockWidget doesn't scroll its content on its own. Only a
+    // vertical scrollbar is wanted here - AdjustmentsPanel's own width
+    // already fits the dock, so a horizontal one would just be noise.
+    auto *adjustmentsScrollArea = new QScrollArea(this);
+    adjustmentsScrollArea->setWidget(m_adjustmentsPanel);
+    adjustmentsScrollArea->setWidgetResizable(true);
+    adjustmentsScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
     auto *dock = new QDockWidget(tr("Adjustments"), this);
-    dock->setWidget(m_adjustmentsPanel);
+    dock->setWidget(adjustmentsScrollArea);
     dock->setFeatures(QDockWidget::NoDockWidgetFeatures);
     addDockWidget(Qt::RightDockWidgetArea, dock);
 

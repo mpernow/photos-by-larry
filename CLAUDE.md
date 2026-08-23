@@ -140,7 +140,12 @@ the `Photo`/`PhotoLibrary` API wouldn't need to change to do it.
   (temperature through saturation) sections (`CollapsibleSection`, a small
   reusable toggle-button-plus-content-widget) so the panel doesn't show
   every control at once. Expanded by default; collapse state isn't
-  persisted. Copy/Paste Settings stays outside any section.
+  persisted. Copy/Paste Settings stays outside any section. `MainWindow`
+  puts the panel inside a `QScrollArea` (vertical scrolling only) rather
+  than handing it to the dock directly, since on a short window - a
+  smaller/lower-resolution display, or just a shorter dock than usual -
+  all these controls stacked up can add up to more height than fits, and a
+  `QDockWidget` doesn't scroll its content on its own.
 - `CropOverlayItem` — a `QGraphicsItem` drawn on top of the image while
   cropping: darkens everything outside the selection and lets the user drag
   its body to move it or its edges/corners to resize it. `ImageViewer` only
