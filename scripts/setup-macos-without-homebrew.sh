@@ -50,6 +50,14 @@ if [ -f "${OPENCV_INSTALL_DIR}/lib/cmake/opencv4/OpenCVConfig.cmake" ]; then
 else
     SRC_DIR=$(mktemp -d)
     git clone --branch "${OPENCV_VERSION}" --depth 1 https://github.com/opencv/opencv.git "${SRC_DIR}"
+    # WITH_PROTOBUF/WITH_ADE=OFF: BUILD_LIST excludes dnn/gapi (the modules
+    # that actually use protobuf/ade), but OpenCV's install step still
+    # exports a CMake target for them regardless - referencing an archive
+    # that was never compiled because nothing in the trimmed module set
+    # needed it. That mismatch breaks the project's own `cmake -B build`
+    # afterward with a "file does not exist" error on find_package(OpenCV);
+    # telling OpenCV not to configure them as dependencies at all avoids
+    # the phantom export in the first place.
     cmake -S "${SRC_DIR}" -B "${SRC_DIR}/build" \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_OSX_DEPLOYMENT_TARGET="${MACOS_DEPLOYMENT_TARGET}" \
@@ -60,7 +68,9 @@ else
         -DBUILD_PERF_TESTS=OFF \
         -DBUILD_EXAMPLES=OFF \
         -DBUILD_opencv_apps=OFF \
-        -DBUILD_DOCS=OFF
+        -DBUILD_DOCS=OFF \
+        -DWITH_PROTOBUF=OFF \
+        -DWITH_ADE=OFF
     cmake --build "${SRC_DIR}/build" -j "$(sysctl -n hw.ncpu)"
     cmake --install "${SRC_DIR}/build"
     rm -rf "${SRC_DIR}"

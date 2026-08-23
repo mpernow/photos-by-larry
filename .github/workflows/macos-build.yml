@@ -62,7 +62,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/opencv-install
-          key: opencv-${{ env.OPENCV_VERSION }}-macos${{ env.MACOS_DEPLOYMENT_TARGET }}-arm64-v1
+          key: opencv-${{ env.OPENCV_VERSION }}-macos${{ env.MACOS_DEPLOYMENT_TARGET }}-arm64-v2
 
       # Homebrew's opencv bottle has the exact same too-new-a-minimum-macOS
       # problem Qt's does, so this builds from source instead - only the
@@ -72,6 +72,15 @@ jobs:
       # README's macOS section previously called this out as a remaining
       # gap for a distributable build - "something like dylibbundler is the
       # common choice - or statically link OpenCV instead").
+      #
+      # WITH_PROTOBUF/WITH_ADE=OFF: BUILD_LIST excludes dnn/gapi (the
+      # modules that actually use protobuf/ade), but OpenCV's install step
+      # still exports a CMake target for them regardless - referencing an
+      # archive that was never compiled because nothing in the trimmed
+      # module set needed it. That mismatch is what broke find_package() in
+      # this project's own CMake configure step with a "file does not
+      # exist" error; telling OpenCV not to configure them as dependencies
+      # at all avoids the phantom export in the first place.
       - name: Build OpenCV from source
         if: steps.opencv-cache.outputs.cache-hit != 'true'
         run: |
@@ -87,7 +96,9 @@ jobs:
             -DBUILD_PERF_TESTS=OFF \
             -DBUILD_EXAMPLES=OFF \
             -DBUILD_opencv_apps=OFF \
-            -DBUILD_DOCS=OFF
+            -DBUILD_DOCS=OFF \
+            -DWITH_PROTOBUF=OFF \
+            -DWITH_ADE=OFF
           cmake --build /tmp/opencv-build -j "$(sysctl -n hw.ncpu)"
           cmake --install /tmp/opencv-build
 
