@@ -1,5 +1,6 @@
 build/
 build-*/
+.deps/
 *.user
 compile_commands.json
 .vscode/

@@ -168,37 +168,40 @@ from reading Qt/CMake's own documentation for cross-platform bundle
 support, but treat the macOS path as unverified until someone actually
 builds it there.
 
-### CI-built macOS binary (for Macs Homebrew's Qt/OpenCV no longer reach)
+### Building on a Mac too old for Homebrew's current Qt/OpenCV
 
 `brew install qt6 opencv` needs a fairly recent macOS - Homebrew's supported
 range moves forward over time, and once your OS falls outside it, Homebrew
 either can't install a bottle at all or installs one built for a newer
-minimum macOS than yours, which won't run. `.github/workflows/macos-build.yml`
-works around this for a specific case (Intel Macs on macOS 12 Monterey or
-later) by not using Homebrew for the build at all: it fetches Qt's own
-official binaries (pinned to a Qt 6.8 LTS release, whose documented minimum
-macOS is 12) and builds OpenCV from source, both explicitly targeting macOS
-12 via `CMAKE_OSX_DEPLOYMENT_TARGET` - so the *build machine* can be
-whatever current macOS GitHub's hosted runner happens to be, while the
-*output* still runs on Monterey. It also runs `macdeployqt` and links
-OpenCV statically, so the artifact it produces is the standalone,
-distributable bundle described above - not just a locally-runnable one.
+minimum macOS than yours, which won't run. This is a real wall on macOS 12
+Monterey today, and will eventually affect whatever macOS version is
+current now too, as Homebrew's window keeps moving forward.
 
-Trigger it manually from the repo's Actions tab (or push a `v*` tag), then
-download the `PhotosByLarry-macOS-Intel` artifact from the run and unzip it.
-The workflow doesn't code-sign or notarize (that needs a paid Apple
-Developer account, out of scope for this), so unlike a locally-compiled
-`.app`, this one *is* something macOS's Gatekeeper sees as downloaded from
-the internet - first launch will get an "unidentified developer" warning.
-Right-click the app and choose Open (instead of double-clicking) to get a
-dialog with an Open option, or run
-`xattr -d com.apple.quarantine PhotosByLarry.app` from Terminal first.
+`scripts/setup-macos-without-homebrew.sh` works around it by not using
+Homebrew for this build at all: it fetches Qt's own official binaries
+(via [aqtinstall](https://github.com/miurahr/aqtinstall), pinned to a Qt
+6.8 LTS release whose documented minimum macOS is 12) and builds OpenCV
+from source, both explicitly targeting macOS 12 via
+`CMAKE_OSX_DEPLOYMENT_TARGET` - so neither depends on whatever Homebrew
+currently considers "supported." Run it once:
 
-If your Mac is Apple Silicon rather than Intel, the same approach applies
-but the workflow would need `arch: arm64`/`CMAKE_OSX_ARCHITECTURES=arm64`
-in place of the x86_64 settings throughout - it wasn't built for both
-since that roughly doubles the build's complexity and runtime for a need
-that didn't exist yet.
+```sh
+./scripts/setup-macos-without-homebrew.sh
+```
+
+It installs Qt under `~/Qt` (aqtinstall's own default location - shared
+across projects, not tied to this repo) and builds OpenCV into `.deps/`
+inside the repo (only the `core`/`imgproc`/`imgcodecs` modules this project
+actually uses, statically linked, ~10-15 minutes the first time). At the
+end it prints the exact `cmake -B build -DCMAKE_PREFIX_PATH=...` command to
+run - that (and the usual `cmake --build build -j`) is what you'll use for
+subsequent rebuilds; the script itself only needs to run once.
+
+(A GitHub Actions workflow doing the equivalent in CI was considered, but
+GitHub no longer offers a free/standard-tier Intel macOS runner - every
+Intel macOS label is now GitHub's paid "larger runners" tier, which
+requires a payment method on file even for public repos. Building locally
+sidesteps that entirely, and was the actual goal anyway.)
 
 ### Testing
 

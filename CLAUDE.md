@@ -26,11 +26,13 @@ but unverified on real macOS; see the README's macOS section (dependencies
 via Homebrew, `open build/PhotosByLarry.app` to run, what's still needed for
 a distributable - not just locally-runnable - bundle).
 
-`.github/workflows/macos-build.yml` builds a distributable macOS binary in
-CI (Intel, targeting macOS 12 Monterey) without Homebrew, since Homebrew's
-own supported-macOS window has moved past what some users are still on -
-same README section has the details (why, how to trigger it, the Gatekeeper
-caveat for a CI-downloaded build).
+`scripts/setup-macos-without-homebrew.sh` builds Qt and OpenCV without
+Homebrew (Qt via aqtinstall, OpenCV from source), for a Mac too old for
+Homebrew's current bottles - same README section has the details. A CI
+version of this was tried first, but GitHub no longer offers a free-tier
+Intel macOS runner (every Intel label is the paid "larger runners" tier,
+which needs a payment method even on public repos) - local build sidesteps
+that.
 
 ### Tests
 
