@@ -236,7 +236,14 @@ void MainWindow::loadPhoto(int row)
                     return;
                 m_currentSource = result;
                 updateExportEnabled();
-                updatePreview(m_currentPhoto->editParameters(), /*fullResolution=*/true);
+                // Render with whatever AdjustmentsPanel is showing right now - which,
+                // mid-drag, is the live uncommitted slider position, not
+                // m_currentPhoto->editParameters()'s last *committed* value. Using the
+                // latter here would otherwise yank the preview back to the pre-drag (on
+                // a fresh photo, completely unedited) image for a frame whenever this
+                // background decode happens to land mid-drag, before the next
+                // mouse-move re-asserts the live value.
+                updatePreview(m_adjustmentsPanel->currentParameters(), /*fullResolution=*/true);
             });
             watcher->setFuture(QtConcurrent::run([path]() { return ImageConversion::loadImage(path); }));
         }

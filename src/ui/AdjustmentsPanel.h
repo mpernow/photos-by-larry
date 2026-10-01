@@ -37,6 +37,14 @@ public:
     // is further gated on not being mid-crop (see setCropModeActive).
     void setPasteSettingsEnabled(bool enabled);
 
+    // What's currently shown - the live slider positions, not necessarily
+    // the last *committed* (previewParametersChanged-only) state. Exposed so
+    // a caller that needs to re-render outside the normal slider-move/
+    // slider-release flow (MainWindow, when a backgrounded RAW decode lands
+    // while a slider is mid-drag) can match whatever's actually on screen
+    // instead of yanking it back to the last committed value.
+    EditParameters currentParameters() const;
+
 signals:
     void previewParametersChanged(const EditParameters &params);
     void parametersCommitted(const EditParameters &params);
@@ -53,7 +61,6 @@ signals:
     void pasteSettingsRequested();
 
 private:
-    EditParameters currentParameters() const;
     void emitPreview();
     void updatePasteButtonEnabled();
 
