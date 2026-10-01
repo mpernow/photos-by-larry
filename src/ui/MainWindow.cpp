@@ -15,6 +15,7 @@
 #include <QDockWidget>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QFutureWatcher>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPushButton>
@@ -22,6 +23,7 @@
 #include <QSignalBlocker>
 #include <QSplitter>
 #include <QStatusBar>
+#include <QtConcurrent/QtConcurrent>
 
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
@@ -202,16 +204,54 @@ void MainWindow::loadPhoto(int row)
 
     m_currentPhoto = photo;
     m_currentRow = row;
-    m_currentSource = cv::imread(photo->filePath().toStdString(), cv::IMREAD_COLOR);
-    m_previewSource = makePreviewSource(m_currentSource);
 
-    m_adjustmentsPanel->setEnabled(!m_currentSource.empty());
+    const QString path = photo->filePath();
+    const bool isRaw = ImageConversion::isRawFile(path);
+
+    // RAW files take multiple seconds to demosaic at full resolution -
+    // decoding that synchronously here would freeze the whole window for
+    // that long every single time this photo is (re)selected. Instead, show
+    // the (near-instant) embedded preview right away and run the real decode
+    // on a background thread; editing and browsing stay responsive the whole
+    // time, and the view upgrades to full resolution once it lands. Ordinary
+    // raster formats decode fast enough that none of this is worth the extra
+    // complexity - loadImage() alone is already effectively instant for them.
+    if (isRaw) {
+        m_currentSource.release();
+        m_previewSource = makePreviewSource(ImageConversion::loadPreviewImage(path));
+
+        if (!m_pendingFullSourceDecodes.contains(photo)) {
+            m_pendingFullSourceDecodes.insert(photo);
+            statusBar()->showMessage(tr("Loading full-resolution RAW image..."));
+
+            auto *watcher = new QFutureWatcher<cv::Mat>(this);
+            connect(watcher, &QFutureWatcher<cv::Mat>::finished, this, [this, watcher, photo]() {
+                const cv::Mat result = watcher->result();
+                watcher->deleteLater();
+                m_pendingFullSourceDecodes.remove(photo);
+                if (m_pendingFullSourceDecodes.isEmpty())
+                    statusBar()->clearMessage();
+
+                if (photo != m_currentPhoto) // user has since moved on to a different photo
+                    return;
+                m_currentSource = result;
+                updateExportEnabled();
+                updatePreview(m_currentPhoto->editParameters(), /*fullResolution=*/true);
+            });
+            watcher->setFuture(QtConcurrent::run([path]() { return ImageConversion::loadImage(path); }));
+        }
+    } else {
+        m_currentSource = ImageConversion::loadImage(path);
+        m_previewSource = makePreviewSource(m_currentSource);
+    }
+
+    m_adjustmentsPanel->setEnabled(!m_previewSource.empty());
     m_adjustmentsPanel->setParameters(photo->editParameters());
     updateExportEnabled();
     syncFavoriteUi(photo->isFavorite());
     updateFavoriteEnabled();
 
-    updatePreview(photo->editParameters(), /*fullResolution=*/true);
+    updatePreview(photo->editParameters(), /*fullResolution=*/!isRaw);
 }
 
 void MainWindow::onPreviewParametersChanged(const EditParameters &params)

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QMainWindow>
+#include <QSet>
 #include <opencv2/core.hpp>
 
 #include "core/EditParameters.h"
@@ -66,6 +67,14 @@ private:
     int m_currentRow = -1; // index of m_currentPhoto in the library, for invalidating its thumbnail
     cv::Mat m_currentSource; // decoded, never-modified, full-resolution pixels
     cv::Mat m_previewSource; // downscaled copy of m_currentSource, for fast interactive preview
+
+    // RAW files demosaic in the multiple seconds, not milliseconds - loadPhoto
+    // runs that decode on a background thread instead of blocking the UI (see
+    // its comment), and tracks in-flight ones here so re-selecting the same
+    // photo before its decode finishes doesn't launch a duplicate, and so a
+    // decode that finishes after the user has already moved on to another
+    // photo gets its result discarded instead of overwriting the wrong one.
+    QSet<Photo *> m_pendingFullSourceDecodes;
 
     EditParameters m_copiedParameters; // last "Copy Settings" snapshot; meaningless unless m_hasCopiedParameters
     bool m_hasCopiedParameters = false;
