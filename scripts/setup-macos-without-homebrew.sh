@@ -22,9 +22,13 @@ set -euo pipefail
 QT_VERSION="${QT_VERSION:-6.8.0}"                       # LTS; documented minimum macOS is 12
 MACOS_DEPLOYMENT_TARGET="${MACOS_DEPLOYMENT_TARGET:-12.0}"
 OPENCV_VERSION="${OPENCV_VERSION:-4.10.0}"
+PKGCONFIG_VERSION="${PKGCONFIG_VERSION:-0.29.2}"        # last-ever release, still the standard build-from-source version
+LIBRAW_VERSION="${LIBRAW_VERSION:-0.22.2}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEPS_DIR="${REPO_ROOT}/.deps"
 OPENCV_INSTALL_DIR="${DEPS_DIR}/opencv-install"
+PKGCONFIG_INSTALL_DIR="${DEPS_DIR}/pkgconfig-install"
+LIBRAW_INSTALL_DIR="${DEPS_DIR}/libraw-install"
 QT_INSTALL_DIR="${HOME}/Qt" # aqtinstall's own default layout convention
 
 echo "== Installing aqtinstall (Qt's own official binaries, not Homebrew's) =="
@@ -76,11 +80,66 @@ else
     rm -rf "${SRC_DIR}"
 fi
 
+echo "== Building pkg-config ${PKGCONFIG_VERSION} =="
+echo "   (needed for CMake to find LibRaw below - not part of Xcode's command-line tools,"
+echo "   and normally the first thing people reach for Homebrew just to get)"
+if [ -x "${PKGCONFIG_INSTALL_DIR}/bin/pkg-config" ]; then
+    echo "pkg-config already built at ${PKGCONFIG_INSTALL_DIR}, skipping."
+else
+    SRC_DIR=$(mktemp -d)
+    curl -fsSL "https://pkgconfig.freedesktop.org/releases/pkg-config-${PKGCONFIG_VERSION}.tar.gz" \
+        | tar -xz -C "${SRC_DIR}" --strip-components=1
+    (
+        cd "${SRC_DIR}"
+        # --with-internal-glib: pkg-config's own glib dependency is normally
+        # satisfied by the system/Homebrew glib; since this script doesn't
+        # vendor glib either, use the bundled fallback copy instead.
+        MACOSX_DEPLOYMENT_TARGET="${MACOS_DEPLOYMENT_TARGET}" ./configure \
+            --prefix="${PKGCONFIG_INSTALL_DIR}" \
+            --with-internal-glib
+        make -j "$(sysctl -n hw.ncpu)"
+        make install
+    )
+    rm -rf "${SRC_DIR}"
+fi
+export PATH="${PKGCONFIG_INSTALL_DIR}/bin:${PATH}"
+
+echo "== Building LibRaw ${LIBRAW_VERSION} from source (macOS ${MACOS_DEPLOYMENT_TARGET}+) =="
+if [ -f "${LIBRAW_INSTALL_DIR}/lib/pkgconfig/libraw.pc" ]; then
+    echo "LibRaw already built at ${LIBRAW_INSTALL_DIR}, skipping."
+else
+    SRC_DIR=$(mktemp -d)
+    # The release tarball ships a pre-generated ./configure (LibRaw's own
+    # build system is autotools, not CMake - CMake support was dropped by
+    # the LibRaw team in 2014), so no autoconf/automake/libtool needed here.
+    curl -fsSL "https://www.libraw.org/data/LibRaw-${LIBRAW_VERSION}.tar.gz" \
+        | tar -xz -C "${SRC_DIR}" --strip-components=1
+    (
+        cd "${SRC_DIR}"
+        # Static, matching the OpenCV build above, so there's no LibRaw
+        # .dylib to separately bundle later. JPEG/lcms2/OpenMP support is
+        # left to auto-detect rather than forced on - this script doesn't
+        # vendor those libraries, so on a bare Mac they'll likely come up
+        # missing and get skipped; that only costs embedded-JPEG-thumbnail
+        # extraction and ICC color management, not the core RAW decode path
+        # this project actually uses.
+        MACOSX_DEPLOYMENT_TARGET="${MACOS_DEPLOYMENT_TARGET}" ./configure \
+            --prefix="${LIBRAW_INSTALL_DIR}" \
+            --disable-shared \
+            --enable-static \
+            --disable-examples
+        make -j "$(sysctl -n hw.ncpu)"
+        make install
+    )
+    rm -rf "${SRC_DIR}"
+fi
+
 cat <<EOF
 
 Done. Configure and build the project with:
 
-  cmake -B build -DCMAKE_PREFIX_PATH="${QT_CMAKE_DIR};${OPENCV_INSTALL_DIR}"
+  export PATH="${PKGCONFIG_INSTALL_DIR}/bin:\${PATH}"
+  cmake -B build -DCMAKE_PREFIX_PATH="${QT_CMAKE_DIR};${OPENCV_INSTALL_DIR};${LIBRAW_INSTALL_DIR}"
   cmake --build build -j
 
 Then run it with: open build/PhotosByLarry.app

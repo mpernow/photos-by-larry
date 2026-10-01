@@ -19,6 +19,13 @@ set(CMAKE_AUTORCC ON)
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Concurrent)
 find_package(OpenCV REQUIRED COMPONENTS core imgproc imgcodecs)
 
+# LibRaw doesn't reliably ship a CMake config package, so PkgConfig is the
+# more portable way to find it across Linux/macOS. Ubuntu/Debian's
+# pkg-config module name is "libraw" (not "raw", despite the library name
+# itself being libraw.so / -lraw).
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(LibRaw REQUIRED IMPORTED_TARGET libraw)
+
 # src/core/ - UI-independent model and processing logic (Qt Core + OpenCV,
 # no Qt Widgets) - split into its own static library so tests/ can link
 # against just this, without pulling in Widgets or the app's main().
@@ -28,6 +35,7 @@ set(CORE_SOURCES
     src/core/ImageProcessor.cpp
     src/core/Photo.cpp
     src/core/PhotoLibrary.cpp
+    src/core/RawDecoder.cpp
 )
 
 set(CORE_HEADERS
@@ -36,6 +44,8 @@ set(CORE_HEADERS
     src/core/ImageProcessor.h
     src/core/Photo.h
     src/core/PhotoLibrary.h
+    src/core/RawDecoder.h
+    src/core/RawExtensions.h
 )
 
 add_library(PhotosByLarryCore STATIC ${CORE_SOURCES} ${CORE_HEADERS})
@@ -49,7 +59,26 @@ target_link_libraries(PhotosByLarryCore PUBLIC
     Qt6::Core
     Qt6::Gui # ImageConversion.h uses QImage, which lives in Gui, not Core
     ${OpenCV_LIBS}
+    PkgConfig::LibRaw
 )
+
+if(NOT APPLE)
+    # RawDecoder.cpp calls omp_set_num_threads() to cap LibRaw's demosaic
+    # parallelism (see its own comment for why). Those symbols only become
+    # visible because libraw.h conditionally #includes <omp.h> itself - gated
+    # on the compiler predefining _OPENMP, which only happens when -fopenmp
+    # is actually passed at *compile* time. Ubuntu's libraw.pc lists
+    # -fopenmp only under Libs (link flags), not Cflags, so
+    # pkg_check_modules's IMPORTED_TARGET alone never adds it as a compile
+    # flag - without this, RawDecoder.cpp's thread cap silently compiles out
+    # as dead code (LIBRAW_USE_OPENMP never defined) rather than doing
+    # anything. Skipped on macOS: Apple's system Clang doesn't support plain
+    # -fopenmp without extra Homebrew libomp wiring that the no-Homebrew
+    # build path doesn't set up, so RawDecoder's thread cap degrades to the
+    # same harmless no-op there that an OpenMP-less LibRaw build already
+    # triggers.
+    target_compile_options(PhotosByLarryCore PRIVATE -fopenmp)
+endif()
 
 set(APP_SOURCES
     src/main.cpp

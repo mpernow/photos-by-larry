@@ -56,14 +56,14 @@ revisiting, not part of the rendered image.
 
 ## Building
 
-Dependencies: CMake 3.16+, a C++17 compiler, Qt6 (Widgets + Concurrent), OpenCV 4.
+Dependencies: CMake 3.16+, a C++17 compiler, Qt6 (Widgets + Concurrent), OpenCV 4, LibRaw.
 
 ### Linux
 
 On Ubuntu/Debian:
 
 ```sh
-sudo apt install cmake build-essential qt6-base-dev libqt6opengl6-dev libopencv-dev
+sudo apt install cmake build-essential qt6-base-dev libqt6opengl6-dev libopencv-dev libraw-dev
 ```
 
 Configure and build:
@@ -101,7 +101,7 @@ effect.
 **2. Install the build dependencies:**
 
 ```sh
-brew install cmake qt6 opencv
+brew install cmake qt6 opencv libraw
 ```
 
 This is the slow step - Qt6 and OpenCV are large, and depending on your Mac
@@ -180,21 +180,26 @@ current now too, as Homebrew's window keeps moving forward.
 `scripts/setup-macos-without-homebrew.sh` works around it by not using
 Homebrew for this build at all: it fetches Qt's own official binaries
 (via [aqtinstall](https://github.com/miurahr/aqtinstall), pinned to a Qt
-6.8 LTS release whose documented minimum macOS is 12) and builds OpenCV
-from source, both explicitly targeting macOS 12 via
-`CMAKE_OSX_DEPLOYMENT_TARGET` - so neither depends on whatever Homebrew
-currently considers "supported." Run it once:
+6.8 LTS release whose documented minimum macOS is 12) and builds
+OpenCV, LibRaw, and pkg-config from source, all explicitly targeting macOS
+12 via `CMAKE_OSX_DEPLOYMENT_TARGET`/`MACOSX_DEPLOYMENT_TARGET` - so none of
+them depend on whatever Homebrew currently considers "supported." (LibRaw's
+own build is autotools, not CMake, and CMake needs `pkg-config` on `PATH` to
+locate it - neither is part of Xcode's command-line tools, which is why the
+script builds pkg-config too rather than assuming it's already there.) Run
+it once:
 
 ```sh
 ./scripts/setup-macos-without-homebrew.sh
 ```
 
 It installs Qt under `~/Qt` (aqtinstall's own default location - shared
-across projects, not tied to this repo) and builds OpenCV into `.deps/`
-inside the repo (only the `core`/`imgproc`/`imgcodecs` modules this project
-actually uses, statically linked, ~10-15 minutes the first time). At the
-end it prints the exact `cmake -B build -DCMAKE_PREFIX_PATH=...` command to
-run - that (and the usual `cmake --build build -j`) is what you'll use for
+across projects, not tied to this repo) and builds OpenCV (only the
+`core`/`imgproc`/`imgcodecs` modules this project actually uses), LibRaw,
+and pkg-config into `.deps/` inside the repo - all statically linked,
+~10-15 minutes the first time. At the end it prints the exact `export
+PATH=...` and `cmake -B build -DCMAKE_PREFIX_PATH=...` commands to run -
+that (and the usual `cmake --build build -j`) is what you'll use for
 subsequent rebuilds; the script itself only needs to run once.
 
 Works on both Apple Silicon and Intel Macs - it never hardcodes an
@@ -203,12 +208,14 @@ architecture, so it builds for whatever machine it's run on.
 ### CI-built macOS binary
 
 `.github/workflows/macos-build.yml` does the CI equivalent of the script
-above: fetches Qt via aqtinstall and builds OpenCV from source, both
-targeting macOS 12, so the *build machine* can be whatever current macOS
-GitHub's hosted runner happens to be while the *output* still runs on
-Monterey. It also runs `macdeployqt` and links OpenCV statically, so the
-artifact it produces is the standalone, distributable bundle described
-earlier in this section - not just a locally-runnable one.
+above: fetches Qt via aqtinstall and builds OpenCV and LibRaw from source
+(each cached between runs), all targeting macOS 12, so the *build machine*
+can be whatever current macOS GitHub's hosted runner happens to be while the
+*output* still runs on Monterey. (pkg-config itself isn't built from
+source here - GitHub's runner image already ships one.) It also runs
+`macdeployqt` and links OpenCV/LibRaw statically, so the artifact it
+produces is the standalone, distributable bundle described earlier in this
+section - not just a locally-runnable one.
 
 Targets **Apple Silicon (arm64)** specifically, on GitHub's standard
 hosted-runner tier - free and unmetered on public repos. An Intel version

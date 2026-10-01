@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
-Dependencies: CMake 3.16+, a C++17 compiler, Qt6 (Widgets + Concurrent), OpenCV 4.
+Dependencies: CMake 3.16+, a C++17 compiler, Qt6 (Widgets + Concurrent), OpenCV 4, LibRaw.
 
 ```sh
 # Ubuntu/Debian dependency install
-sudo apt install cmake build-essential qt6-base-dev libqt6opengl6-dev libopencv-dev
+sudo apt install cmake build-essential qt6-base-dev libqt6opengl6-dev libopencv-dev libraw-dev
 
 # Configure + build
 cmake -B build
@@ -103,7 +103,21 @@ The code is split into two layers under `src/`:
   keeps its extra highlight/shadow headroom through every edit, and 8-bit
   sources no longer accumulate rounding error across steps either.
 - `ImageConversion` — `cv::Mat` <-> `QImage` conversions (the seam between
-  OpenCV and Qt); every conversion deep-copies.
+  OpenCV and Qt); every conversion deep-copies. Also owns `loadImage(path)`,
+  the single chokepoint every photo source file is opened through: ordinary
+  raster formats go through `cv::imread`, RAW extensions (`.raf`/`.cr2`/
+  `.cr3`/`.nef`/`.arw`/`.orf`/`.rw2`/`.dng`, listed once in
+  `RawExtensions.h` and shared with `PhotoLibrary`'s directory filter so the
+  two lists can't drift apart) go through `RawDecoder`.
+- `RawDecoder` — wraps LibRaw. `decode()` demosaics the full sensor image at
+  16 bits/channel (camera white balance, sRGB output) into the same BGR
+  `cv::Mat` shape `cv::imread` produces, so the rest of the pipeline treats
+  a RAW source exactly like a JPEG. `decodeThumbnail()` is a separate, much
+  cheaper path that pulls the RAW file's embedded preview JPEG instead of
+  demosaicing - `ThumbnailModel`'s background decode uses this specifically,
+  falling back to the full `decode()` only if a file has no embedded
+  preview, since a full demosaic per thumbnail would make opening a
+  directory of RAW photos noticeably slower than one of JPEGs.
 
 ### Non-destructive editing
 

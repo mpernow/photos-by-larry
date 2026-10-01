@@ -11,8 +11,6 @@
 #include <QPainter>
 #include <QtConcurrent/QtConcurrent>
 
-#include <opencv2/imgcodecs.hpp>
-
 namespace
 {
 constexpr int kThumbnailSize = ThumbnailGeometry::kIconSize.width();
@@ -139,7 +137,7 @@ void ThumbnailModel::requestThumbnail(int libraryIndex)
     });
 
     watcher->setFuture(QtConcurrent::run([path, params, isFavorite]() -> QImage {
-        const cv::Mat mat = cv::imread(path.toStdString(), cv::IMREAD_COLOR);
+        const cv::Mat mat = ImageConversion::loadPreviewImage(path);
         if (mat.empty())
             return {};
         const cv::Mat rendered = ImageProcessor::apply(mat, params);

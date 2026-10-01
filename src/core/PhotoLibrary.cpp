@@ -1,6 +1,7 @@
 #include "PhotoLibrary.h"
 
 #include "Photo.h"
+#include "RawExtensions.h"
 
 #include <QDir>
 #include <QFileInfo>
@@ -14,8 +15,12 @@ void PhotoLibrary::openDirectory(const QString &directoryPath)
     m_photos.clear();
     m_directoryPath = directoryPath;
 
+    QStringList nameFilters = {"*.jpg", "*.jpeg", "*.png", "*.bmp", "*.tif", "*.tiff"};
+    for (const QString &extension : rawFileExtensions())
+        nameFilters << ("*." + extension);
+
     QDir dir(directoryPath);
-    dir.setNameFilters({"*.jpg", "*.jpeg", "*.png", "*.bmp", "*.tif", "*.tiff"});
+    dir.setNameFilters(nameFilters);
     dir.setFilter(QDir::Files | QDir::Readable);
     dir.setSorting(QDir::Name);
 

@@ -1,5 +1,11 @@
 #include "ImageConversion.h"
 
+#include "RawDecoder.h"
+#include "RawExtensions.h"
+
+#include <QFileInfo>
+
+#include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 
 QImage ImageConversion::matToQImage(const cv::Mat &mat)
@@ -44,4 +50,25 @@ cv::Mat ImageConversion::qImageToMat(const QImage &image)
     cv::Mat bgr;
     cv::cvtColor(rgb, bgr, cv::COLOR_RGB2BGR);
     return bgr; // cvtColor allocates a fresh buffer, so this doesn't alias `converted`.
+}
+
+bool ImageConversion::isRawFile(const QString &path)
+{
+    return rawFileExtensions().contains(QFileInfo(path).suffix().toLower());
+}
+
+cv::Mat ImageConversion::loadImage(const QString &path)
+{
+    if (isRawFile(path))
+        return RawDecoder::decode(path);
+    return cv::imread(path.toStdString(), cv::IMREAD_COLOR);
+}
+
+cv::Mat ImageConversion::loadPreviewImage(const QString &path)
+{
+    if (isRawFile(path)) {
+        const cv::Mat thumb = RawDecoder::decodeThumbnail(path);
+        return thumb.empty() ? RawDecoder::decode(path) : thumb;
+    }
+    return cv::imread(path.toStdString(), cv::IMREAD_COLOR);
 }

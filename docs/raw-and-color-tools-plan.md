@@ -98,11 +98,37 @@ deliver high-bit-depth files. Skip unless specifically requested - the
 benefit RAW support is chasing is editing headroom, not necessarily 16-bit
 *delivery* files (most exports are still 8-bit JPEG for sharing).
 
-## Phase 2 — LibRaw integration + extension-list change
+## Phase 2 — LibRaw integration + extension-list change ✅ done
 
 Bundled together deliberately: landing the extension-list change before the
 decoder exists would let RAW files show up in the thumbnail grid before
 anything can open them.
+
+**Result:** implemented as described below, with one addition not
+originally scoped - the shared extension list (`src/core/RawExtensions.h`)
+wasn't part of the original plan; added so `PhotoLibrary`'s directory filter
+and `ImageConversion`'s decode-dispatch can't drift apart. Verified against
+a real Fuji X-T5 `.RAF` file (not committed to the repo - RAW samples are
+large binaries and this one is the user's own photo): `RawDecoder::decode`
+produced a 7752x5184 (40.2MP, matching the X-T5 sensor) `CV_16UC3` image
+using the full 0-65535 range, and a downscaled render of it visually checks
+out as the correct photo with correct colors (no channel-swap cast).
+`RawDecoder::decodeThumbnail` produced a 4416x2944 8-bit image from the
+embedded preview JPEG, confirming the thumbnail fast path actually takes
+the cheap route rather than silently falling through to a full demosaic.
+`PhotoLibrary::openDirectory` picks the file up correctly alongside JPEGs
+in its filtered listing. Full rebuild is clean (zero warnings) and the
+existing GoogleTest suite still passes (43/43) - no RAW-specific automated
+tests were added, since the only real validation (an actual camera RAW
+file) isn't something to commit to the repo; see "Open follow-up" below.
+
+**Open follow-up:** no automated regression coverage for the RAW decode
+path itself - the verification above was a one-off manual run against a
+local sample file, not something `ctest` re-checks. If this becomes
+important to guard against regressions, the options are (a) committing a
+small/synthetic RAW fixture if one can be constructed cheaply enough, or
+(b) an opt-in test gated on an environment variable pointing at a local
+sample, skipped by default in CI.
 
 **Goal:** RAW files decode into the now-float-ready pipeline at real bit
 depth.
